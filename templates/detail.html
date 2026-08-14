@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.project_name }} - 案例详情{% endblock %}
+
+{% block content %}
+<div class="container">
+    <button class="back-btn" onclick="history.back()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        返回
+    </button>
+
+    <!-- 项目头部 -->
+    <div class="detail-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+            <div>
+                <h1 class="detail-title">{{ project.project_name }}</h1>
+                <div class="detail-meta">
+                    <span>
+                        {% if '网箱' in project.project_type and '平台' in project.project_type %}
+                        <span class="tag tag-primary">平台+网箱</span>
+                        {% elif '网箱' in project.project_type %}
+                        <span class="tag tag-success">网箱</span>
+                        {% elif '平台' in project.project_type %}
+                        <span class="tag tag-info">平台</span>
+                        {% elif '防波堤' in project.project_type %}
+                        <span class="tag tag-warning">防波堤</span>
+                        {% else %}
+                        <span class="tag tag-primary">{{ project.project_type }}</span>
+                        {% endif %}
+                    </span>
+                    <span>📍 {{ project.location or '未知地点' }}</span>
+                    {% if project.province %}
+                    <span>🏙️ {{ project.province }}</span>
+                    {% endif %}
+                    {% if project.sea_area %}
+                    <span class="tag tag-info">{{ project.sea_area }}</span>
+                    {% endif %}
+                    <span>👤 {{ project.sales_person or '未知' }}</span>
+                    <span>📅 {{ project.confirm_date or '日期未知' }}</span>
+                    {% if project.coordinates %}
+                    <span>🧭 {{ project.coordinates }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{{ url_for('project_edit', project_id=project.id) }}" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                编辑案例
+            </a>
+        </div>
+    </div>
+
+    <!-- 项目描述 -->
+    {% if project.description %}
+    <div class="card" style="margin-bottom: 28px;">
+        <div class="card-body">
+            <div class="detail-section-title" style="margin-bottom: 12px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                项目概述
+            </div>
+            <p style="line-height: 1.8; color: var(--text); white-space: pre-wrap;">{{ project.description }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 海况参数 -->
+    {% if project.sea_conditions %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20"/><path d="M2 6h20"/><path d="M2 18h20"/><path d="M5 6v12"/><path d="M12 6v12"/><path d="M19 6v12"/></svg>
+            海况参数
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">满潮水深</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.water_depth or '-' }}{% if project.sea_conditions.water_depth %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">水位差</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.water_level_diff or '-' }}{% if project.sea_conditions.water_level_diff %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">最大波高</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.max_wave_height or '-' }}{% if project.sea_conditions.max_wave_height %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">最大流速</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.max_flow_speed or '-' }}{% if project.sea_conditions.max_flow_speed %} m/s{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">流向</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.flow_direction or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">底质类型</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.seabed_type or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">常风向</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.common_wind_direction or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">最大风向</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.max_wind_direction or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">最大风速</div>
+                        <div class="detail-info-value">{{ project.sea_conditions.max_wind_speed or '-' }}{% if project.sea_conditions.max_wind_speed %} m/s{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 网箱技术参数 -->
+    {% if project.cage_params and project.cage_params.pipe_diameter %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            网箱技术参数
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">管径</div>
+                        <div class="detail-info-value">{{ project.cage_params.pipe_diameter or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">周长</div>
+                        <div class="detail-info-value">{{ project.cage_params.perimeter or '-' }}{% if project.cage_params.perimeter %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">直径</div>
+                        <div class="detail-info-value">{{ project.cage_params.diameter or '-' }}{% if project.cage_params.diameter %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">网箱数量</div>
+                        <div class="detail-info-value">{{ project.cage_params.cage_count or '-' }}{% if project.cage_params.cage_count %} 口{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">网箱类型</div>
+                        <div class="detail-info-value">{{ project.cage_params.cage_type or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">支架间距</div>
+                        <div class="detail-info-value">{{ project.cage_params.bracket_spacing or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">过道宽度</div>
+                        <div class="detail-info-value">{{ project.cage_params.walkway_width or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">系缆加强套管</div>
+                        <div class="detail-info-value">{{ project.cage_params.mooring_sleeve or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">锚点数量</div>
+                        <div class="detail-info-value">{{ project.cage_params.anchor_point_count or '-' }}{% if project.cage_params.anchor_point_count %} 个{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item" style="grid-column: span 2;">
+                        <div class="detail-info-label">网衣需求</div>
+                        <div class="detail-info-value" style="font-size: 14px; line-height: 1.6;">{{ project.cage_params.net_demand or '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 平台技术参数 -->
+    {% if project.platform_params and (project.platform_params.pipe_diameter or project.platform_params.size_spec) %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            平台技术参数
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">管径</div>
+                        <div class="detail-info-value">{{ project.platform_params.pipe_diameter or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">平台面积</div>
+                        <div class="detail-info-value">{{ project.platform_params.platform_area or '-' }}{% if project.platform_params.platform_area %} m²{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">尺寸规格</div>
+                        <div class="detail-info-value">{{ project.platform_params.size_spec or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">承载力</div>
+                        <div class="detail-info-value">{{ project.platform_params.bearing_capacity or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">造型要求</div>
+                        <div class="detail-info-value">{{ project.platform_params.shape_requirement or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">靠泊船只</div>
+                        <div class="detail-info-value">{{ project.platform_params.docking_ships or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item" style="grid-column: span 2;">
+                        <div class="detail-info-label">附属设施</div>
+                        <div class="detail-info-value">{{ project.platform_params.附属设施 or '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 防波堤参数 -->
+    {% if project.breakwater_params and (project.breakwater_params.pipe_diameter or project.breakwater_params.spec_type) %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/><path d="M2 16c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/><path d="M2 12c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/></svg>
+            防波堤技术参数
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">管径</div>
+                        <div class="detail-info-value">{{ project.breakwater_params.pipe_diameter or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">规格选型</div>
+                        <div class="detail-info-value">{{ project.breakwater_params.spec_type or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">支架间距</div>
+                        <div class="detail-info-value">{{ project.breakwater_params.bracket_spacing or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">减波率</div>
+                        <div class="detail-info-value">{{ project.breakwater_params.wave_reduction_rate or '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 方案图纸 -->
+    {% if project.drawings and project.drawings|length > 0 %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            方案图纸 ({{ project.drawings|length }})
+        </div>
+        <div class="drawing-grid">
+            {% for d in project.drawings %}
+            <div class="drawing-item" onclick="openDrawing({{ d.id }}, '{{ d.file_name }}', '{{ d.file_type }}')">
+                <div class="drawing-thumb {% if d.file_type == 'pdf' %}pdf-thumb{% elif d.file_type == 'cad' %}cad-thumb{% endif %}">
+                    {% if d.file_type == 'image' %}
+                    <img src="/file/drawing/{{ d.id }}" alt="{{ d.file_name }}">
+                    {% elif d.file_type == 'cad' %}
+                    <svg class="drawing-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/>
+                        <path d="M2 7l10 5 10-5"/>
+                        <path d="M12 22V12"/>
+                    </svg>
+                    {% else %}
+                    <svg class="drawing-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    {% endif %}
+                    {% if d.drawing_type %}
+                    <span class="drawing-type-badge">{{ d.drawing_type }}</span>
+                    {% endif %}
+                </div>
+                <div class="drawing-info">
+                    <div class="drawing-name" title="{{ d.file_name }}">{{ d.file_name }}</div>
+                    <div class="drawing-size">{{ (d.file_size / 1024)|round(1) }} KB</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 项目照片 -->
+    {% if project.photos and project.photos|length > 0 %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            项目照片 ({{ project.photos|length }})
+        </div>
+        <div class="drawing-grid">
+            {% for p in project.photos %}
+            <div class="drawing-item" onclick="openPhoto({{ p.id }}, '{{ p.file_name }}')">
+                <div class="drawing-thumb">
+                    <img src="/file/photo/{{ p.id }}" alt="{{ p.file_name }}">
+                </div>
+                <div class="drawing-info">
+                    <div class="drawing-name" title="{{ p.file_name }}">{{ p.file_name }}</div>
+                    <div class="drawing-size">{{ (p.file_size / 1024)|round(1) }} KB</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 材料统计 -->
+    {% if project.materials and project.materials|length > 0 %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            材料统计 ({{ project.materials|length }} 项)
+        </div>
+        <div class="card" style="overflow-x: auto;">
+            <table class="material-table">
+                <thead>
+                    <tr>
+                        <th>分类</th>
+                        <th>材料名称</th>
+                        <th>型号规格</th>
+                        <th>单位</th>
+                        <th style="text-align: right;">数量</th>
+                        <th style="text-align: right;">单重(kg)</th>
+                        <th style="text-align: right;">总重(kg)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set current_cat = '' %}
+                    {% for m in project.materials %}
+                    {% if m.category != current_cat %}
+                    <tr class="material-category">
+                        <td colspan="7">{{ m.category }}</td>
+                    </tr>
+                    {% set current_cat = m.category %}
+                    {% endif %}
+                    <tr>
+                        <td style="color: var(--text-light);">-</td>
+                        <td>{{ m.material_name }}</td>
+                        <td style="font-size: 12px; color: var(--text-light);">{{ m.model }}</td>
+                        <td>{{ m.unit }}</td>
+                        <td style="text-align: right;">{{ m.quantity if m.quantity else '-' }}</td>
+                        <td style="text-align: right;">{{ m.unit_weight if m.unit_weight else '-' }}</td>
+                        <td style="text-align: right; font-weight: 500;">{{ '%.1f'|format(m.total_weight) if m.total_weight else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 图纸预览 Modal -->
+<div class="modal-overlay" id="drawingModal" onclick="closeDrawing(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">图纸预览</div>
+            <button class="modal-close" onclick="closeDrawing()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openDrawing(fileId, fileName, fileType) {
+    const modal = document.getElementById('drawingModal');
+    const title = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+
+    title.textContent = fileName;
+    const fileUrl = '/file/drawing/' + fileId;
+
+    if (fileType === 'pdf') {
+        body.innerHTML = `<iframe src="${fileUrl}" title="${fileName}"></iframe>`;
+    } else if (fileType === 'image') {
+        body.innerHTML = `<img src="${fileUrl}" alt="${fileName}">`;
+    } else if (fileType === 'cad') {
+        body.innerHTML = `
+            <div style="text-align: center; padding: 60px 40px;">
+                <div style="font-size: 72px; margin-bottom: 20px;">📐</div>
+                <h3>CAD 图纸</h3>
+                <p style="color: var(--text-light); margin: 16px 0; max-width: 400px;">
+                    CAD图纸（.dwg/.dxf）暂不支持在线预览，<br>请下载后使用 AutoCAD 或其他 CAD 软件查看
+                </p>
+                <a href="${fileUrl}" class="btn btn-primary" download>下载文件</a>
+            </div>
+        `;
+    } else {
+        body.innerHTML = `
+            <div style="text-align: center; padding: 60px 40px;">
+                <div style="font-size: 56px; margin-bottom: 16px;">📄</div>
+                <p>此文件类型暂不支持在线预览</p>
+                <a href="${fileUrl}" class="btn btn-primary" download>下载文件</a>
+            </div>
+        `;
+    }
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function openPhoto(fileId, fileName) {
+    const modal = document.getElementById('drawingModal');
+    const title = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+
+    title.textContent = fileName;
+    const fileUrl = '/file/photo/' + fileId;
+    body.innerHTML = `<img src="${fileUrl}" alt="${fileName}">`;
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDrawing(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('drawingModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+// ESC 关闭
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDrawing();
+    }
+});
+</script>
+{% endblock %}

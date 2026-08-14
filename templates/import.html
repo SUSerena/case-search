@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}数据导入 - 深水网箱案例检索系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">数据导入</h1>
+        <p style="color: var(--text-light); margin-top: 4px;">导入项目信息、招标文件和图纸文件</p>
+    </div>
+
+    <!-- Tab 切换 -->
+    <div class="import-tabs">
+        <div class="tab-item active" data-tab="project" onclick="switchTab('project')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            项目信息导入
+        </div>
+        <div class="tab-item" data-tab="tender" onclick="switchTab('tender')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            招标文件智能分析
+        </div>
+        <div class="tab-item" data-tab="drawing" onclick="switchTab('drawing')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            图纸上传
+        </div>
+    </div>
+
+    <!-- Tab 1: 项目信息导入 -->
+    <div class="tab-content active" id="tab-project">
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-section-title" style="margin-bottom: 20px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--primary);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    导入项目信息
+                </div>
+
+                <div class="upload-area" id="excelUploadArea" onclick="document.getElementById('excelFile').click()">
+                    <input type="file" id="excelFile" accept=".xls,.xlsx,.docx,.pdf,.txt" style="display: none;" onchange="handleProjectUpload(event)">
+                    <div class="upload-icon">📊</div>
+                    <div class="upload-text">点击或拖拽文件到此处上传</div>
+                    <div class="upload-hint">支持 Excel(.xlsx/.xls)、Word(.docx)、PDF、TXT 格式</div>
+                </div>
+
+                <div class="import-result" id="excelResult"></div>
+
+                <div style="margin-top: 24px; padding: 16px; background: var(--bg); border-radius: var(--radius-sm);">
+                    <h4 style="margin-bottom: 10px; font-size: 14px;">📋 支持的格式</h4>
+                    <ul style="font-size: 13px; color: var(--text-light); padding-left: 20px; line-height: 2;">
+                        <li><strong>Excel (.xlsx/.xls)</strong> - 使用系统标准「项目信息表」模板，自动识别所有字段</li>
+                        <li><strong>Word (.docx)</strong> - 从Word文档中提取项目信息（需安装python-docx）</li>
+                        <li><strong>PDF</strong> - 从PDF文档中提取文字并解析（需安装PyPDF2或pdfplumber）</li>
+                        <li><strong>TXT</strong> - 纯文本格式，按关键词提取信息</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: 招标文件智能分析 -->
+    <div class="tab-content" id="tab-tender">
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-section-title" style="margin-bottom: 20px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--primary);"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    招标文件智能分析
+                </div>
+                <p style="color: var(--text-light); margin-bottom: 20px;">上传招标文件，系统自动解析并提取项目名称、地点、规模、技术要求、工期、预算等关键信息</p>
+
+                <div class="upload-area" id="tenderUploadArea" onclick="document.getElementById('tenderFile').click()">
+                    <input type="file" id="tenderFile" accept=".docx,.pdf,.txt,.doc" style="display: none;" onchange="handleTenderUpload(event)">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">点击或拖拽招标文件到此处</div>
+                    <div class="upload-hint">支持 Word(.docx)、PDF、TXT 格式，最大100MB</div>
+                </div>
+
+                <div class="import-result" id="tenderResult"></div>
+
+                <!-- 解析结果预览 -->
+                <div id="tenderPreview" style="display: none; margin-top: 24px;">
+                    <h4 style="margin-bottom: 16px;">📋 解析结果预览（可编辑后确认保存）</h4>
+                    <form id="tenderPreviewForm">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">项目名称</label>
+                                <input type="text" name="project_name" class="form-input" id="tp_project_name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">项目类型</label>
+                                <select name="project_type" class="form-select" id="tp_project_type">
+                                    <option value="网箱">网箱</option>
+                                    <option value="平台">平台</option>
+                                    <option value="平台＋网箱">平台＋网箱</option>
+                                    <option value="防波堤">防波堤</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">所在地</label>
+                                <input type="text" name="location" class="form-input" id="tp_location">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">省份</label>
+                                <input type="text" name="province" class="form-input" id="tp_province">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">海域</label>
+                                <input type="text" name="sea_area" class="form-input" id="tp_sea_area">
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">项目规模</label>
+                                <input type="text" name="project_scale" class="form-input" id="tp_project_scale">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">建设工期</label>
+                                <input type="text" name="construction_period" class="form-input" id="tp_construction_period">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">预算/投资</label>
+                                <input type="text" name="budget" class="form-input" id="tp_budget">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">项目描述</label>
+                            <textarea name="description" class="form-textarea" rows="3" id="tp_description"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                            <button type="button" class="btn btn-secondary" onclick="hideTenderPreview()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="saveTenderProject()">确认保存为新案例</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div style="margin-top: 24px; padding: 16px; background: #e6f7f3; border-radius: var(--radius-sm);">
+                    <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--secondary);">🔍 智能识别内容</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 13px; color: var(--text-light);">
+                        <div>✓ 项目名称与类型</div>
+                        <div>✓ 项目地点与海域</div>
+                        <div>✓ 建设规模与工期</div>
+                        <div>✓ 投资预算范围</div>
+                        <div>✓ 水深/波高/流速</div>
+                        <div>✓ 管径/周长等参数</div>
+                        <div>✓ 项目概述摘要</div>
+                        <div>✓ 技术规格要点</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: 图纸上传 -->
+    <div class="tab-content" id="tab-drawing">
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-section-title" style="margin-bottom: 20px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--primary);"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    图纸上传
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">选择项目 <span class="required">*</span></label>
+                    <select class="form-select" id="drawingProjectSelect">
+                        <option value="">请先选择要上传图纸的项目</option>
+                    </select>
+                </div>
+
+                <div class="upload-area" id="drawingUploadArea" onclick="document.getElementById('drawingFile').click()">
+                    <input type="file" id="drawingFile" accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.dwg,.dxf" multiple style="display: none;" onchange="handleDrawingUpload(event)">
+                    <div class="upload-icon">📐</div>
+                    <div class="upload-text">点击或拖拽图纸文件到此处</div>
+                    <div class="upload-hint">支持 PDF / 图片 / CAD图纸(.dwg/.dxf) 等格式</div>
+                </div>
+
+                <div class="import-result" id="drawingResult"></div>
+
+                <div id="drawingList" class="import-list" style="display: none;">
+                    <div class="import-list-title">已上传的图纸</div>
+                    <div id="drawingListContent"></div>
+                </div>
+
+                <div style="margin-top: 24px; padding: 16px; background: var(--bg); border-radius: var(--radius-sm);">
+                    <h4 style="margin-bottom: 10px; font-size: 14px;">📁 支持的格式</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; font-size: 13px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #e74c3c;">📕</span> PDF文档
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #3498db;">🖼️</span> 图片 (JPG/PNG)
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #9b59b6;">📐</span> CAD图纸 (.dwg/.dxf)
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #27ae60;">📊</span> 材料统计 Excel
+                        </div>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-light); margin-top: 10px;">
+                        * CAD图纸暂不支持在线预览，可下载后使用AutoCAD等软件打开
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Tab 切换
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab-item[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+// 拖拽支持
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjects();
+    setupDragDrop('excelUploadArea', 'excelFile');
+    setupDragDrop('tenderUploadArea', 'tenderFile');
+    setupDragDrop('drawingUploadArea', 'drawingFile');
+});
+
+function setupDragDrop(areaId, inputId) {
+    const area = document.getElementById(areaId);
+    const input = document.getElementById(inputId);
+    if (!area || !input) return;
+    area.addEventListener('dragover', function(e) { e.preventDefault(); area.classList.add('dragover'); });
+    area.addEventListener('dragleave', function() { area.classList.remove('dragover'); });
+    area.addEventListener('drop', function(e) {
+        e.preventDefault();
+        area.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+function loadProjects() {
+    fetch('/api/projects?page_size=100')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('drawingProjectSelect');
+            if (!select) return;
+            const projects = data.data.list || [];
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.project_name;
+                select.appendChild(option);
+            });
+        });
+}
+
+// 项目信息导入
+function handleProjectUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const resultEl = document.getElementById('excelResult');
+    resultEl.className = 'import-result';
+    resultEl.innerHTML = '<div class="loading"></div> 正在解析文件...';
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // Excel格式走原有的项目信息表解析
+    if (ext === 'xls' || ext === 'xlsx') {
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/import/excel', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    resultEl.className = 'import-result success';
+                    resultEl.innerHTML = `<strong>✅ 导入成功</strong><br>项目名称：${data.project_name}<br><a href="/project/${data.project_id}">查看项目详情 →</a>`;
+                    loadProjects();
+                } else {
+                    resultEl.className = 'import-result error';
+                    resultEl.innerHTML = `<strong>❌ 导入失败</strong><br>${data.message}`;
+                }
+            })
+            .catch(err => {
+                resultEl.className = 'import-result error';
+                resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
+            });
+    } else {
+        // 其他格式走招标文件解析流程
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/import/tender', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    resultEl.className = 'import-result success';
+                    resultEl.innerHTML = `<strong>✅ 解析成功</strong><br>项目名称：${data.project_name}<br>切换到「招标文件智能分析」查看详情并保存`;
+                    showTenderPreview(data.parsed_data);
+                } else {
+                    resultEl.className = 'import-result error';
+                    resultEl.innerHTML = `<strong>❌ 解析失败</strong><br>${data.message}`;
+                }
+            })
+            .catch(err => {
+                resultEl.className = 'import-result error';
+                resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
+            });
+    }
+}
+
+// 招标文件解析
+let currentTenderData = null;
+
+function handleTenderUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const resultEl = document.getElementById('tenderResult');
+    resultEl.className = 'import-result';
+    resultEl.innerHTML = '<div class="loading"></div> 正在解析招标文件，请稍候...';
+    document.getElementById('tenderPreview').style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/import/tender', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                resultEl.className = 'import-result success';
+                resultEl.innerHTML = `<strong>✅ 解析成功</strong><br>识别到项目：${data.project_name}<br>请在下方确认或修改后保存`;
+                showTenderPreview(data.parsed_data);
+            } else {
+                resultEl.className = 'import-result error';
+                resultEl.innerHTML = `<strong>❌ 解析失败</strong><br>${data.message}`;
+            }
+        })
+        .catch(err => {
+            resultEl.className = 'import-result error';
+            resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
+        });
+}
+
+function showTenderPreview(data) {
+    currentTenderData = data;
+    document.getElementById('tenderPreview').style.display = 'block';
+    document.getElementById('tp_project_name').value = data.project_name || '';
+    document.getElementById('tp_project_type').value = data.project_type || '网箱';
+    document.getElementById('tp_location').value = data.location || '';
+    document.getElementById('tp_province').value = data.province || '';
+    document.getElementById('tp_sea_area').value = data.sea_area || '';
+    document.getElementById('tp_project_scale').value = data.project_scale || '';
+    document.getElementById('tp_construction_period').value = data.construction_period || '';
+    document.getElementById('tp_budget').value = data.budget || '';
+    document.getElementById('tp_description').value = data.description || '';
+
+    // 切换到招标文件tab
+    switchTab('tender');
+}
+
+function hideTenderPreview() {
+    document.getElementById('tenderPreview').style.display = 'none';
+    currentTenderData = null;
+}
+
+function saveTenderProject() {
+    if (!currentTenderData) return;
+
+    // 从表单收集修改后的数据
+    const form = document.getElementById('tenderPreviewForm');
+    const formData = new FormData(form);
+
+    const projectData = { ...currentTenderData };
+    formData.forEach((value, key) => {
+        projectData[key] = value;
+    });
+
+    fetch('/api/import/tender/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_data: projectData })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('保存成功！即将跳转到项目详情页');
+            window.location.href = `/project/${data.project_id}`;
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => {
+        alert('保存失败：' + err.message);
+    });
+}
+
+// 图纸上传
+function handleDrawingUpload(event) {
+    const projectId = document.getElementById('drawingProjectSelect').value;
+    if (!projectId) {
+        alert('请先选择要上传图纸的项目');
+        return;
+    }
+
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const resultEl = document.getElementById('drawingResult');
+    resultEl.className = 'import-result';
+    resultEl.innerHTML = '<div class="loading"></div> 正在上传...';
+
+    let uploaded = 0;
+    let failed = 0;
+
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch(`/api/upload/drawing/${projectId}`, { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) uploaded++;
+            else failed++;
+            checkDone();
+        })
+        .catch(() => { failed++; checkDone(); });
+    });
+
+    function checkDone() {
+        if (uploaded + failed === files.length) {
+            if (failed === 0) {
+                resultEl.className = 'import-result success';
+                resultEl.innerHTML = `<strong>✅ 上传成功</strong><br>成功上传 ${uploaded} 个文件`;
+            } else {
+                resultEl.className = 'import-result error';
+                resultEl.innerHTML = `<strong>⚠️ 上传完成</strong><br>成功 ${uploaded} 个，失败 ${failed} 个`;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}智能检索 - 深水网箱案例检索系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">智能案例检索</h1>
+        <p style="color: var(--text-light); margin-top: 4px;">输入新项目参数，快速匹配最相似的历史案例</p>
+    </div>
+
+    <div class="search-layout">
+        <!-- 左侧：检索条件 -->
+        <div class="search-panel">
+            <div class="card">
+                <div class="card-body">
+                    <form id="searchForm">
+                        <!-- 项目基本信息 -->
+                        <div class="search-section">
+                            <div class="section-title">项目类型</div>
+                            <select name="project_type" class="form-select">
+                                <option value="">全部类型</option>
+                                <option value="网箱">网箱</option>
+                                <option value="平台">平台</option>
+                                <option value="平台＋网箱">平台＋网箱</option>
+                                <option value="防波堤">防波堤</option>
+                            </select>
+                        </div>
+
+                        <!-- 海况参数 -->
+                        <div class="search-section">
+                            <div class="section-title">海况参数</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">水深 (m)</label>
+                                    <input type="number" name="water_depth" class="form-input" step="0.1" placeholder="如：20">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">最大波高 (m)</label>
+                                    <input type="number" name="max_wave_height" class="form-input" step="0.1" placeholder="如：3.5">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">最大流速 (m/s)</label>
+                                    <input type="number" name="max_flow_speed" class="form-input" step="0.1" placeholder="如：1.5">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">水位差 (m)</label>
+                                    <input type="number" name="water_level_diff" class="form-input" step="0.1" placeholder="如：3">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">最大风速 (m/s)</label>
+                                    <input type="number" name="max_wind_speed" class="form-input" step="0.1" placeholder="如：35">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">底质类型</label>
+                                    <select name="seabed_type" class="form-select">
+                                        <option value="">不限</option>
+                                        <option value="沙质">沙质</option>
+                                        <option value="沙质硬底">沙质硬底</option>
+                                        <option value="淤泥">淤泥质</option>
+                                        <option value="泥沙质">泥沙质</option>
+                                        <option value="粉砂质">粉砂质</option>
+                                        <option value="岩礁">岩礁底质</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 技术规格 -->
+                        <div class="search-section">
+                            <div class="section-title">技术规格</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">管径</label>
+                                    <select name="pipe_diameter" class="form-select">
+                                        <option value="">不限</option>
+                                        <option value="DN315">DN315</option>
+                                        <option value="DN400">DN400</option>
+                                        <option value="DN500">DN500</option>
+                                        <option value="DN630">DN630</option>
+                                        <option value="DN800">DN800</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">周长/直径 (m)</label>
+                                    <input type="number" name="perimeter" class="form-input" step="1" placeholder="周长约值">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">网箱数量 (口)</label>
+                                    <input type="number" name="cage_count" class="form-input" placeholder="如：8">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">平台面积 (m²)</label>
+                                    <input type="number" name="platform_area" class="form-input" placeholder="如：500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 关键词 -->
+                        <div class="search-section">
+                            <div class="section-title">关键词描述</div>
+                            <textarea name="keywords" class="form-textarea" placeholder="输入项目特点、用途等关键词，如：抗风浪、大黄鱼养殖、休闲垂钓..."></textarea>
+                        </div>
+
+                        <div class="search-actions">
+                            <button type="button" class="btn btn-secondary" onclick="resetForm()">重置</button>
+                            <button type="submit" class="btn btn-primary" id="searchBtn">
+                                <span id="searchBtnText">开始匹配</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：搜索结果 -->
+        <div class="search-results">
+            <div class="results-header">
+                <div class="results-count">
+                    匹配结果：<strong id="resultCount">0</strong> 个案例
+                </div>
+            </div>
+
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔍</div>
+                    <p>输入检索条件开始匹配</p>
+                    <small>系统将从海况、规格、类型等多维度智能匹配最相似的历史案例</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 搜索表单提交
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    performSearch();
+});
+
+function performSearch() {
+    const form = document.getElementById('searchForm');
+    const btn = document.getElementById('searchBtn');
+    const btnText = document.getElementById('searchBtnText');
+
+    // 收集表单数据
+    const formData = new FormData(form);
+    const query = {};
+    formData.forEach((value, key) => {
+        if (value && value.trim()) {
+            query[key] = value.trim();
+        }
+    });
+
+    // 按钮加载状态
+    btn.disabled = true;
+    btnText.textContent = '匹配中...';
+
+    fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query)
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.disabled = false;
+        btnText.textContent = '开始匹配';
+        renderResults(data.results || []);
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btnText.textContent = '开始匹配';
+        alert('检索失败：' + err.message);
+    });
+}
+
+function renderResults(results) {
+    const container = document.getElementById('resultsContainer');
+    document.getElementById('resultCount').textContent = results.length;
+
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <p>未找到匹配的项目</p>
+                <small>请尝试调整检索条件</small>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    results.forEach((p, index) => {
+        const sim = p.similarity || 0;
+        const scoreClass = sim >= 80 ? 'high' : (sim >= 60 ? 'medium' : '');
+
+        // 项目类型标签
+        let typeTag = '';
+        if (p.project_type) {
+            if (p.project_type.includes('网箱') && p.project_type.includes('平台')) {
+                typeTag = '<span class="tag tag-primary">平台+网箱</span>';
+            } else if (p.project_type.includes('网箱')) {
+                typeTag = '<span class="tag tag-success">网箱</span>';
+            } else if (p.project_type.includes('平台')) {
+                typeTag = '<span class="tag tag-info">平台</span>';
+            } else if (p.project_type.includes('防波堤')) {
+                typeTag = '<span class="tag tag-warning">防波堤</span>';
+            } else {
+                typeTag = `<span class="tag tag-primary">${p.project_type}</span>`;
+            }
+        }
+
+        // 匹配详情标签
+        let matchDetails = '';
+        const matchItems = [];
+        if (p.water_depth) matchItems.push(`水深 ${p.water_depth}m`);
+        if (p.max_wave_height) matchItems.push(`波高 ${p.max_wave_height}m`);
+        if (p.max_flow_speed) matchItems.push(`流速 ${p.max_flow_speed}m/s`);
+        if (p.cage_count) matchItems.push(`${p.cage_count}口网箱`);
+        if (p.perimeter) matchItems.push(`周长 ${p.perimeter}m`);
+        matchItems.slice(0, 4).forEach(item => {
+            matchDetails += `<span class="match-item">${item}</span>`;
+        });
+
+        html += `
+            <div class="card result-item fade-in" style="animation-delay: ${index * 0.05}s">
+                <div class="card-body">
+                    <div class="result-item-top">
+                        <div>
+                            <div class="result-title">
+                                <a href="/project/${p.id}" style="color: inherit;">${p.project_name || '未命名项目'}</a>
+                            </div>
+                            <div style="margin-top: 6px;">${typeTag}</div>
+                        </div>
+                        <div class="similarity-score">
+                            <div class="score-number">${sim}</div>
+                            <div class="score-label">相似度</div>
+                            <div class="score-bar">
+                                <div class="score-bar-fill" style="width: ${sim}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="match-details">
+                        ${matchDetails}
+                    </div>
+                    ${p.description ? `<div class="result-summary">${p.description}</div>` : ''}
+                    <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-light);">
+                        <span>📍 ${p.location || '未知'}</span>
+                        <a href="/project/${p.id}" class="btn btn-primary btn-sm">查看详情</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function resetForm() {
+    document.getElementById('searchForm').reset();
+    document.getElementById('resultsContainer').innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <p>输入检索条件开始匹配</p>
+            <small>系统将从海况、规格、类型等多维度智能匹配最相似的历史案例</small>
+        </div>
+    `;
+    document.getElementById('resultCount').textContent = '0';
+}
+</script>
+{% endblock %}

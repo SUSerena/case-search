@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}访问日志 - 案例检索系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="font-size: 20px; color: var(--text);">访问日志</h2>
+        <nav style="display: flex; gap: 12px;">
+            <a href="{{ url_for('admin_users') }}" class="btn" style="font-size: 13px; padding: 8px 16px; border-radius: var(--radius-sm); background: var(--bg-white); color: var(--text); border: 1px solid var(--border); text-decoration: none;">用户列表</a>
+            <a href="{{ url_for('admin_logs') }}" class="btn btn-primary" style="font-size: 13px; padding: 8px 16px; border-radius: var(--radius-sm); background: var(--primary); color: #fff; text-decoration: none;">访问日志</a>
+        </nav>
+    </div>
+
+    <div class="card" style="background: var(--bg-white); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: var(--bg); border-bottom: 2px solid var(--border);">
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">ID</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">用户名</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">手机号</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">IP地址</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">动作</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">时间</th>
+                    <th style="padding: 12px 16px; text-align: left; font-size: 13px; color: var(--text-light);">浏览器</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 10px 16px; font-size: 13px; color: var(--text-light);">{{ log.id }}</td>
+                    <td style="padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text);">{{ log.username or '-' }}</td>
+                    <td style="padding: 10px 16px; font-size: 13px; color: var(--text);">{{ log.phone or '-' }}</td>
+                    <td style="padding: 10px 16px; font-size: 12px; color: var(--text-light);">{{ log.ip_address or '-' }}</td>
+                    <td style="padding: 10px 16px;">
+                        {% if log.action == 'login' %}
+                        <span style="background: #e8f5e9; color: #2e7d32; font-size: 11px; padding: 2px 8px; border-radius: 10px;">登录</span>
+                        {% elif log.action == 'logout' %}
+                        <span style="background: #fff3e0; color: #e65100; font-size: 11px; padding: 2px 8px; border-radius: 10px;">登出</span>
+                        {% elif log.action == 'register' %}
+                        <span style="background: #e3f2fd; color: #1565c0; font-size: 11px; padding: 2px 8px; border-radius: 10px;">注册</span>
+                        {% else %}
+                        <span style="background: var(--bg); color: var(--text-light); font-size: 11px; padding: 2px 8px; border-radius: 10px;">{{ log.action }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 10px 16px; font-size: 12px; color: var(--text-light);">{{ log.login_time or '-' }}</td>
+                    <td style="padding: 10px 16px; font-size: 11px; color: var(--text-lighter); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ log.user_agent or '' }}">{{ log.user_agent or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if total_pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 6px; margin-top: 20px;">
+        {% if page > 1 %}
+        <a href="{{ url_for('admin_logs', page=page-1) }}" style="padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-white); color: var(--text); text-decoration: none; font-size: 13px;">上一页</a>
+        {% endif %}
+        <span style="padding: 6px 12px; font-size: 13px; color: var(--text-light);">{{ page }} / {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a href="{{ url_for('admin_logs', page=page+1) }}" style="padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-white); color: var(--text); text-decoration: none; font-size: 13px;">下一页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 16px; font-size: 13px; color: var(--text-light);">
+        共 {{ total }} 条日志
+    </div>
+</div>
+{% endblock %}

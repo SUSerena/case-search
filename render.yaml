@@ -1,0 +1,26 @@
+# Render 配置文件
+# 文档: https://render.com/docs/blueprint-spec
+# 部署前请先将代码推送到 GitHub 仓库
+
+services:
+  - type: web
+    name: case-search-system
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --chdir . --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # SQLite 模式：每次重启自动重建数据库+导入样例数据
+      # 如需持久化数据，请创建 Render PostgreSQL 并取消下方注释：
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: case-search-db
+      #     property: connectionString
+
+# 可选：免费 PostgreSQL 数据库（90天免费期）
+databases:
+  - name: case-search-db
+    databaseName: case_search
+    plan: free
+    ipAllowList: []

@@ -1,0 +1,24 @@
+# Web 框架
+flask>=2.3.0
+
+# 生产级 WSGI 服务器（Render 部署用）
+gunicorn>=21.2.0
+
+# Excel 解析
+openpyxl>=3.1.0
+xlrd>=2.0.1
+
+# PDF 解析
+pdfplumber>=0.9.0
+
+# Word 文档解析
+python-docx>=0.8.11
+
+# 数据处理
+pandas>=2.0.0
+
+# 图片处理
+Pillow>=10.0.0
+
+# PostgreSQL 驱动（Render 部署用，本地 SQLite 不需要）
+psycopg2-binary>=2.9.9
