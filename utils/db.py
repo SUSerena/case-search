@@ -426,6 +426,96 @@ def project_exists(project_name):
     return result is not None
 
 
+def update_project_fields(project_id, fields):
+    """
+    批量更新项目字段（只更新非空字段，不影响已有值）
+    用于"补充已有项目资料"模式
+    - 主表字段：UPDATE（只更新有值的字段）
+    - 海况/网箱子表：存在则 UPDATE，不存在则 INSERT
+    """
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    # ---- 主表字段 ----
+    main_fields = ['project_name', 'project_type', 'sales_person', 'confirm_date',
+                   'location', 'province', 'sea_area', 'coordinates', 'description',
+                   'project_scale', 'construction_period', 'budget']
+    updates = []
+    params = []
+    for f in main_fields:
+        val = fields.get(f)
+        if val is not None and str(val).strip():
+            updates.append(f'{f} = ?')
+            params.append(val)
+    if updates:
+        params.append(project_id)
+        cursor.execute(f'UPDATE projects SET {", ".join(updates)} WHERE id = ?', params)
+
+    # ---- 海况参数（UPDATE or INSERT）----
+    sea = fields.get('sea_conditions', {})
+    sea_map = {
+        'water_depth': 'water_depth',
+        'water_level_diff': 'water_level_diff',
+        'max_wave_height': 'max_wave_height',
+        'max_flow_speed': 'max_flow_speed',
+        'flow_direction': 'flow_direction',
+        'max_wind_speed': 'max_wind_speed',
+        'common_wind_direction': 'common_wind_direction',
+        'seabed_type': 'seabed_type',
+    }
+    sea_data = {}
+    for field_name, db_col in sea_map.items():
+        val = sea.get(field_name)
+        if val is not None and str(val).strip():
+            sea_data[db_col] = val
+    if sea_data:
+        cursor.execute('SELECT id FROM sea_conditions WHERE project_id = ?', (project_id,))
+        existing = cursor.fetchone()
+        if existing:
+            set_clauses = ', '.join(f'{k} = ?' for k in sea_data)
+            cursor.execute(f'UPDATE sea_conditions SET {set_clauses} WHERE project_id = ?',
+                           list(sea_data.values()) + [project_id])
+        else:
+            cols = ['project_id'] + list(sea_data.keys())
+            placeholders = ', '.join('?' for _ in cols)
+            cursor.execute(f'INSERT INTO sea_conditions ({", ".join(cols)}) VALUES ({placeholders})',
+                           [project_id] + list(sea_data.values()))
+
+    # ---- 网箱参数（UPDATE or INSERT）----
+    cage = fields.get('cage_params', {})
+    cage_map = {
+        'pipe_diameter': 'pipe_diameter',
+        'perimeter': 'perimeter',
+        'diameter': 'diameter',
+        'cage_type': 'cage_type',
+        'cage_count': 'cage_count',
+        'bracket_spacing': 'bracket_spacing',
+        'walkway_width': 'walkway_width',
+        'anchor_point_count': 'anchor_point_count',
+        'net_demand': 'net_demand',
+    }
+    cage_data = {}
+    for field_name, db_col in cage_map.items():
+        val = cage.get(field_name)
+        if val is not None and str(val).strip():
+            cage_data[db_col] = val
+    if cage_data:
+        cursor.execute('SELECT id FROM cage_params WHERE project_id = ?', (project_id,))
+        existing = cursor.fetchone()
+        if existing:
+            set_clauses = ', '.join(f'{k} = ?' for k in cage_data)
+            cursor.execute(f'UPDATE cage_params SET {set_clauses} WHERE project_id = ?',
+                           list(cage_data.values()) + [project_id])
+        else:
+            cols = ['project_id'] + list(cage_data.keys())
+            placeholders = ', '.join('?' for _ in cols)
+            cursor.execute(f'INSERT INTO cage_params ({", ".join(cols)}) VALUES ({placeholders})',
+                           [project_id] + list(cage_data.values()))
+
+    conn.commit()
+    conn.close()
+
+
 def insert_project(data):
     """
     插入新项目

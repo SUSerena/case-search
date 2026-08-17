@@ -19,7 +19,7 @@ from utils.db import (
     get_all_users, toggle_user_status, get_access_logs,
     update_user_status, delete_user, get_pending_user_count,
     delete_project, delete_drawing, delete_photo,
-    replace_drawing, replace_photo
+    replace_drawing, replace_photo, update_project_fields
 )
 from utils.matcher import match_projects
 from utils.parser import parse_project_excel, import_project_from_excel, parse_smart
@@ -404,13 +404,23 @@ def api_project_detail(project_id):
 
 @app.route('/api/import/excel', methods=['POST'])
 def api_import_excel():
-    """智能识别导入项目信息（支持Excel/Word/PDF/TXT）"""
+    """智能识别导入项目信息（支持Excel/Word/PDF/TXT）
+    可选参数 project_id：有值则返回已有项目数据用于补充模式
+    """
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': '请选择文件'}), 400
 
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'message': '请选择文件'}), 400
+
+    # 可选：对应已有项目（补充模式）
+    project_id = request.form.get('project_id', '').strip()
+    existing_data = None
+    if project_id:
+        existing_data = get_project_detail(int(project_id))
+        if not existing_data:
+            return jsonify({'success': False, 'message': '选择的项目不存在'}), 400
 
     # 保存文件
     filename = file.filename
@@ -433,7 +443,9 @@ def api_import_excel():
             'message': f'智能识别完成（{file_format}格式）',
             'parsed_data': data,
             'raw_text': raw_text[:5000],
-            'file_format': file_format
+            'file_format': file_format,
+            'project_id': project_id or None,
+            'existing_data': existing_data
         })
 
     except Exception as e:
@@ -447,22 +459,40 @@ def api_import_excel():
 
 @app.route('/api/import/confirm', methods=['POST'])
 def api_import_confirm():
-    """确认导入：用户确认智能识别结果后保存"""
+    """确认导入：用户确认智能识别结果后保存
+    有 project_id 则更新已有项目（补充模式），无则创建新项目
+    """
     data = request.get_json() or {}
+    project_id = data.get('project_id')
 
     project_name = data.get('project_name', '').strip()
     if not project_name:
         return jsonify({'success': False, 'message': '项目名称不能为空'}), 400
 
+    # 补充模式：更新已有项目
+    if project_id:
+        try:
+            update_project_fields(int(project_id), data)
+            return jsonify({
+                'success': True,
+                'message': f'资料已补充到项目：{project_name}',
+                'project_id': int(project_id),
+                'mode': 'supplement'
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'更新失败：{str(e)}'}), 500
+
+    # 创建模式：检查重名后插入
     if project_exists(project_name):
         return jsonify({'success': False, 'message': f"项目 '{project_name}' 已存在"}), 400
 
     try:
-        project_id = insert_project(data)
+        new_id = insert_project(data)
         return jsonify({
             'success': True,
             'message': f'导入成功：{project_name}',
-            'project_id': project_id
+            'project_id': new_id,
+            'mode': 'create'
         })
     except Exception as e:
         return jsonify({'success': False, 'message': f'保存失败：{str(e)}'}), 500
@@ -595,7 +625,9 @@ def api_upload_drawing(project_id):
 
 @app.route('/api/import/tender', methods=['POST'])
 def api_import_tender():
-    """招标文件智能分析导入"""
+    """招标文件智能分析导入
+    可选参数 project_id：有值则返回已有项目数据用于补充模式
+    """
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': '请选择文件'}), 400
 
@@ -614,6 +646,14 @@ def api_import_tender():
             'message': f'不支持的格式 {ext}，支持 Word/PDF/TXT 格式'
         }), 400
 
+    # 可选：对应已有项目（补充模式）
+    project_id = request.form.get('project_id', '').strip()
+    existing_data = None
+    if project_id:
+        existing_data = get_project_detail(int(project_id))
+        if not existing_data:
+            return jsonify({'success': False, 'message': '选择的项目不存在'}), 400
+
     # 保存文件
     save_name = f"tender_{int(datetime.now().timestamp())}_{filename}"
     save_path = os.path.join(UPLOAD_DIR, 'tender', save_name)
@@ -623,6 +663,11 @@ def api_import_tender():
     # 解析招标文件
     try:
         result = parse_tender_document(save_path)
+        # 删除临时文件
+        try:
+            os.remove(save_path)
+        except:
+            pass
         if not result:
             return jsonify({
                 'success': False,
@@ -631,37 +676,76 @@ def api_import_tender():
 
         return jsonify({
             'success': True,
-            'message': '解析成功，请确认后保存',
+            'message': '智能分析完成，请确认后保存',
             'project_name': result['project_name'],
-            'parsed_data': result
+            'parsed_data': result,
+            'project_id': project_id or None,
+            'existing_data': existing_data
         })
 
     except Exception as e:
+        # 删除临时文件
+        try:
+            os.remove(save_path)
+        except:
+            pass
         return jsonify({'success': False, 'message': f'解析失败：{str(e)}'}), 500
+
+
+# 别名路由
+@app.route('/api/tender/analyze', methods=['POST'])
+def api_tender_analyze():
+    """招标文件智能分析（别名路由）"""
+    return api_import_tender()
+
+
+@app.route('/api/tender/save', methods=['POST'])
+def api_tender_save():
+    """保存招标文件分析结果（别名路由）"""
+    return api_save_tender()
 
 
 @app.route('/api/import/tender/save', methods=['POST'])
 def api_save_tender():
-    """保存招标文件解析结果为新项目"""
+    """保存招标文件解析结果
+    有 project_id 则更新已有项目（补充模式），无则创建新项目
+    """
     data = request.get_json() or {}
     project_data = data.get('project_data', {})
+    project_id = data.get('project_id') or project_data.get('project_id')
 
     if not project_data.get('project_name'):
         return jsonify({'success': False, 'message': '项目名称不能为空'}), 400
 
+    # 补充模式：更新已有项目
+    if project_id:
+        try:
+            update_project_fields(int(project_id), project_data)
+            return jsonify({
+                'success': True,
+                'message': f'资料已补充到项目：{project_data["project_name"]}',
+                'project_id': int(project_id),
+                'project_name': project_data['project_name'],
+                'mode': 'supplement'
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'更新失败：{str(e)}'}), 500
+
+    # 创建模式：检查重名后插入
     if project_exists(project_data['project_name']):
         return jsonify({
             'success': False,
             'message': f"项目 '{project_data['project_name']}' 已存在"
         }), 400
 
-    project_id = insert_project(project_data)
+    new_id = insert_project(project_data)
 
     return jsonify({
         'success': True,
         'message': '保存成功',
-        'project_id': project_id,
-        'project_name': project_data['project_name']
+        'project_id': new_id,
+        'project_name': project_data['project_name'],
+        'mode': 'create'
     })
 
 

@@ -34,6 +34,17 @@
                     导入项目信息
                 </div>
 
+                <!-- 选择对应项目（创建新项目 / 补充已有项目） -->
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label">选择对应项目</label>
+                    <select class="form-select" id="projectImportSelect">
+                        <option value="">➕ 创建新项目（默认）</option>
+                    </select>
+                    <p style="font-size: 12px; color: var(--text-lighter); margin-top: 4px;">
+                        选择已有项目可将识别到的信息补充进去（已有值保留，空字段填入新值）
+                    </p>
+                </div>
+
                 <div class="upload-area" id="excelUploadArea" onclick="document.getElementById('excelFile').click()">
                     <input type="file" id="excelFile" accept=".xls,.xlsx,.docx,.pdf,.txt" style="display: none;" onchange="handleProjectUpload(event)">
                     <div class="upload-icon">📊</div>
@@ -45,7 +56,7 @@
 
                 <!-- 智能识别预览 -->
                 <div id="smartPreview" style="display: none; margin-top: 24px;">
-                    <div style="background: #e3f2fd; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; color: #1565c0;">
+                    <div id="smartPreviewBanner" style="background: #e3f2fd; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; color: #1565c0;">
                         <strong>系统自动识别结果</strong> — 以下字段由智能识别提取，请确认或修改后保存
                     </div>
                     <form id="smartPreviewForm">
@@ -108,7 +119,7 @@
                         </div>
                         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
                             <button type="button" class="btn btn-secondary" onclick="hideSmartPreview()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="confirmSmartImport()">确认保存为新案例</button>
+                            <button type="button" class="btn btn-primary" id="smartConfirmBtn" onclick="confirmSmartImport()">确认保存为新案例</button>
                         </div>
                     </form>
                 </div>
@@ -139,6 +150,17 @@
                 </div>
                 <p style="color: var(--text-light); margin-bottom: 20px;">上传招标文件，系统自动解析并提取项目名称、地点、规模、技术要求、工期、预算等关键信息</p>
 
+                <!-- 选择对应项目（创建新项目 / 补充已有项目） -->
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label">选择对应项目</label>
+                    <select class="form-select" id="tenderImportSelect">
+                        <option value="">➕ 创建新项目（默认）</option>
+                    </select>
+                    <p style="font-size: 12px; color: var(--text-lighter); margin-top: 4px;">
+                        选择已有项目可将分析结果补充进去（已有值保留，空字段填入新值）
+                    </p>
+                </div>
+
                 <div class="upload-area" id="tenderUploadArea" onclick="document.getElementById('tenderFile').click()">
                     <input type="file" id="tenderFile" accept=".docx,.pdf,.txt,.doc" style="display: none;" onchange="handleTenderUpload(event)">
                     <div class="upload-icon">📄</div>
@@ -150,7 +172,7 @@
 
                 <!-- 解析结果预览 -->
                 <div id="tenderPreview" style="display: none; margin-top: 24px;">
-                    <h4 style="margin-bottom: 16px;">📋 解析结果预览（可编辑后确认保存）</h4>
+                    <h4 id="tenderPreviewTitle" style="margin-bottom: 16px;">📋 解析结果预览（可编辑后确认保存）</h4>
 
                     <!-- 货物需求突出展示 -->
                     <div id="goodsSection" style="display: none; margin-bottom: 20px; padding: 16px; background: #fff3e0; border: 2px solid #ff9800; border-radius: var(--radius-sm);">
@@ -161,56 +183,136 @@
                     </div>
 
                     <form id="tenderPreviewForm">
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label class="form-label">项目名称</label>
-                                <input type="text" name="project_name" class="form-input" id="tp_project_name">
+                        <!-- 项目基本信息 -->
+                        <div style="background: #f0f7ff; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+                            <h4 style="margin-bottom: 10px; font-size: 13px; color: var(--secondary);">📋 项目基本信息</h4>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">项目名称</label>
+                                    <input type="text" name="project_name" class="form-input" id="tp_project_name">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">招标人</label>
+                                    <input type="text" name="tenderer" class="form-input" id="tp_tenderer">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">项目类型</label>
-                                <select name="project_type" class="form-select" id="tp_project_type">
-                                    <option value="网箱">网箱</option>
-                                    <option value="平台">平台</option>
-                                    <option value="平台＋网箱">平台＋网箱</option>
-                                    <option value="防波堤">防波堤</option>
-                                </select>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">项目类型</label>
+                                    <select name="project_type" class="form-select" id="tp_project_type">
+                                        <option value="网箱">网箱</option>
+                                        <option value="平台">平台</option>
+                                        <option value="平台＋网箱">平台＋网箱</option>
+                                        <option value="防波堤">防波堤</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">所在地</label>
+                                    <input type="text" name="location" class="form-input" id="tp_location">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">省份</label>
+                                    <input type="text" name="province" class="form-input" id="tp_province">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">海域</label>
+                                    <input type="text" name="sea_area" class="form-input" id="tp_sea_area">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">项目规模</label>
+                                    <input type="text" name="project_scale" class="form-input" id="tp_project_scale">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">建设工期</label>
+                                    <input type="text" name="construction_period" class="form-input" id="tp_construction_period">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">预算/投资</label>
+                                    <input type="text" name="budget" class="form-input" id="tp_budget">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">交货地点</label>
+                                    <input type="text" name="delivery_location" class="form-input" id="tp_delivery_location">
+                                </div>
                             </div>
                         </div>
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label class="form-label">所在地</label>
-                                <input type="text" name="location" class="form-input" id="tp_location">
+
+                        <!-- 海况参数 -->
+                        <div style="background: #e8f5e9; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+                            <h4 style="margin-bottom: 10px; font-size: 13px; color: #2e7d32;">🌊 海况参数</h4>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">水深(m)</label>
+                                    <input type="text" name="water_depth" class="form-input" id="tp_water_depth" placeholder="未识别，请手动填写">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">最大波高(m)</label>
+                                    <input type="text" name="max_wave_height" class="form-input" id="tp_max_wave_height" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">最大流速(m/s)</label>
+                                    <input type="text" name="max_flow_speed" class="form-input" id="tp_max_flow_speed" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">抗台风等级</label>
+                                    <input type="text" name="typhoon_level" class="form-input" id="tp_typhoon_level" placeholder="未识别">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">省份</label>
-                                <input type="text" name="province" class="form-input" id="tp_province">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">海域</label>
-                                <input type="text" name="sea_area" class="form-input" id="tp_sea_area">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">气温范围</label>
+                                    <input type="text" name="temperature_range" class="form-input" id="tp_temperature_range" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">海域面积</label>
+                                    <input type="text" name="sea_area_size" class="form-input" id="tp_sea_area_size" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">离岸距离</label>
+                                    <input type="text" name="offshore_distance" class="form-input" id="tp_offshore_distance" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">底质</label>
+                                    <input type="text" name="seabed_type" class="form-input" id="tp_seabed_type" placeholder="未识别">
+                                </div>
                             </div>
                         </div>
-                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label class="form-label">项目规模</label>
-                                <input type="text" name="project_scale" class="form-input" id="tp_project_scale">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">建设工期</label>
-                                <input type="text" name="construction_period" class="form-input" id="tp_construction_period">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">预算/投资</label>
-                                <input type="text" name="budget" class="form-input" id="tp_budget">
+
+                        <!-- 网箱参数 -->
+                        <div style="background: #f3e5f5; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+                            <h4 style="margin-bottom: 10px; font-size: 13px; color: #7b1fa2;">🔧 网箱/设备参数</h4>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">网箱数量(座)</label>
+                                    <input type="text" name="cage_count" class="form-input" id="tp_cage_count" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">周长(m)</label>
+                                    <input type="text" name="perimeter" class="form-input" id="tp_perimeter" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">管径</label>
+                                    <input type="text" name="pipe_diameter" class="form-input" id="tp_pipe_diameter" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">网箱类型</label>
+                                    <input type="text" name="cage_type" class="form-input" id="tp_cage_type" placeholder="未识别">
+                                </div>
                             </div>
                         </div>
+
+                        <!-- 项目描述 -->
                         <div class="form-group">
-                            <label class="form-label">项目描述</label>
-                            <textarea name="description" class="form-textarea" rows="3" id="tp_description"></textarea>
+                            <label class="form-label">项目描述/概述</label>
+                            <textarea name="description" class="form-textarea" rows="4" id="tp_description"></textarea>
                         </div>
                         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
                             <button type="button" class="btn btn-secondary" onclick="hideTenderPreview()">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="saveTenderProject()">确认保存为新案例</button>
+                            <button type="button" class="btn btn-primary" id="tenderConfirmBtn" onclick="saveTenderProject()">确认保存为新案例</button>
                         </div>
                     </form>
                 </div>
@@ -326,20 +428,26 @@ function loadProjects() {
     fetch('/api/projects?page_size=100')
         .then(res => res.json())
         .then(data => {
-            const select = document.getElementById('drawingProjectSelect');
-            if (!select) return;
             const projects = data.data.list || [];
-            projects.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.id;
-                option.textContent = p.project_name;
-                select.appendChild(option);
+            const selectIds = ['drawingProjectSelect', 'projectImportSelect', 'tenderImportSelect'];
+            selectIds.forEach(sid => {
+                const select = document.getElementById(sid);
+                if (!select) return;
+                projects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.project_name;
+                    select.appendChild(option);
+                });
             });
         });
 }
 
 // 项目信息导入（智能识别）
 let currentSmartData = null;
+let currentProjectMode = 'create'; // 'create' or 'supplement'
+let currentProjectId = null;
+let existingProjectData = null;
 
 function handleProjectUpload(event) {
     const file = event.target.files[0];
@@ -352,13 +460,17 @@ function handleProjectUpload(event) {
     const formData = new FormData();
     formData.append('file', file);
 
+    // 传递 project_id（补充模式）
+    const projectId = document.getElementById('projectImportSelect').value;
+    if (projectId) formData.append('project_id', projectId);
+
     fetch('/api/import/excel', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
                 resultEl.className = 'import-result success';
                 resultEl.innerHTML = `<strong>✅ 智能识别完成（${data.file_format}格式）</strong><br>请在下方确认或修改字段后保存`;
-                showSmartPreview(data.parsed_data);
+                showSmartPreview(data.parsed_data, data.existing_data, data.project_id);
             } else {
                 resultEl.className = 'import-result error';
                 resultEl.innerHTML = `<strong>❌ 识别失败</strong><br>${data.message}`;
@@ -370,25 +482,96 @@ function handleProjectUpload(event) {
         });
 }
 
-function showSmartPreview(data) {
+function showSmartPreview(data, existing, projectId) {
     currentSmartData = data;
+    existingProjectData = existing || null;
+    currentProjectId = projectId || null;
+    currentProjectMode = projectId ? 'supplement' : 'create';
+
+    const banner = document.getElementById('smartPreviewBanner');
+    const confirmBtn = document.getElementById('smartConfirmBtn');
+
+    if (currentProjectMode === 'supplement' && existing) {
+        banner.style.background = '#fff3e0';
+        banner.style.color = '#e65100';
+        banner.innerHTML = `<strong>📋 补充项目资料 — ${existing.project_name || ''}</strong><br>灰色为已有信息（保留），蓝色为新识别信息（将补充）`;
+        confirmBtn.textContent = '确认补充到该项目';
+    } else {
+        banner.style.background = '#e3f2fd';
+        banner.style.color = '#1565c0';
+        banner.innerHTML = '<strong>系统自动识别结果</strong> — 以下字段由智能识别提取，请确认或修改后保存';
+        confirmBtn.textContent = '确认保存为新案例';
+    }
+
     document.getElementById('smartPreview').style.display = 'block';
-    document.getElementById('sp_project_name').value = data.project_name || '';
-    document.getElementById('sp_sales_person').value = data.sales_person || '';
-    document.getElementById('sp_project_type').value = data.project_type || '网箱';
-    document.getElementById('sp_location').value = data.location || '';
-    document.getElementById('sp_confirm_date').value = data.confirm_date || '';
-    document.getElementById('sp_water_depth').value = (data.sea_conditions && data.sea_conditions.water_depth) || '';
-    document.getElementById('sp_max_wave_height').value = (data.sea_conditions && data.sea_conditions.max_wave_height) || '';
-    document.getElementById('sp_max_flow_speed').value = (data.sea_conditions && data.sea_conditions.max_flow_speed) || '';
-    document.getElementById('sp_pipe_diameter').value = (data.cage_params && data.cage_params.pipe_diameter) || '';
-    document.getElementById('sp_perimeter').value = (data.cage_params && data.cage_params._perimeter_text) || '';
-    document.getElementById('sp_description').value = data.description || '';
+
+    // 填充字段：补充模式下，新值优先，无新值则显示已有值（灰色）
+    setFieldWithMode('sp_project_name', data.project_name, existing && existing.project_name);
+    setFieldWithMode('sp_sales_person', data.sales_person, existing && existing.sales_person);
+    setFieldWithMode('sp_project_type', data.project_type, existing && existing.project_type, '网箱');
+    setFieldWithMode('sp_location', data.location, existing && existing.location);
+    setFieldWithMode('sp_confirm_date', data.confirm_date, existing && existing.confirm_date);
+    setFieldWithMode('sp_water_depth',
+        (data.sea_conditions && data.sea_conditions.water_depth) || '',
+        (existing && existing.sea_conditions && existing.sea_conditions.water_depth) || '');
+    setFieldWithMode('sp_max_wave_height',
+        (data.sea_conditions && data.sea_conditions.max_wave_height) || '',
+        (existing && existing.sea_conditions && existing.sea_conditions.max_wave_height) || '');
+    setFieldWithMode('sp_max_flow_speed',
+        (data.sea_conditions && data.sea_conditions.max_flow_speed) || '',
+        (existing && existing.sea_conditions && existing.sea_conditions.max_flow_speed) || '');
+    setFieldWithMode('sp_pipe_diameter',
+        (data.cage_params && data.cage_params.pipe_diameter) || '',
+        (existing && existing.cage_params && existing.cage_params.pipe_diameter) || '');
+    setFieldWithMode('sp_perimeter',
+        (data.cage_params && data.cage_params._perimeter_text) || '',
+        (existing && existing.cage_params && existing.cage_params.perimeter) || '');
+    setFieldWithMode('sp_description', data.description, existing && existing.description);
+}
+
+/**
+ * 补充模式字段填充辅助
+ * - 有新值：蓝色高亮（可编辑）
+ * - 无新值有已有值：灰色显示（保留）
+ */
+function setFieldWithMode(fieldId, newVal, existingVal, defaultVal) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    // 移除旧样式
+    el.style.borderColor = '';
+    el.style.backgroundColor = '';
+    el.style.color = '';
+    el.readOnly = false;
+
+    const nv = newVal !== null && newVal !== undefined ? String(newVal).trim() : '';
+    const ev = existingVal !== null && existingVal !== undefined ? String(existingVal).trim() : '';
+
+    if (nv) {
+        // 有新值 → 蓝色高亮
+        el.value = nv;
+        if (currentProjectMode === 'supplement') {
+            el.style.borderColor = '#2196f3';
+            el.style.backgroundColor = '#e3f2fd';
+        }
+    } else if (ev) {
+        // 无新值有已有值 → 灰色保留
+        el.value = ev;
+        if (currentProjectMode === 'supplement') {
+            el.style.backgroundColor = '#f5f5f5';
+            el.style.color = '#999';
+            el.readOnly = true;
+        }
+    } else {
+        el.value = defaultVal || '';
+    }
 }
 
 function hideSmartPreview() {
     document.getElementById('smartPreview').style.display = 'none';
     currentSmartData = null;
+    currentProjectMode = 'create';
+    currentProjectId = null;
+    existingProjectData = null;
 }
 
 function confirmSmartImport() {
@@ -401,6 +584,11 @@ function confirmSmartImport() {
     // 从表单收集数据
     const formData = new FormData(document.getElementById('smartPreviewForm'));
     const projectData = { ...currentSmartData };
+
+    // 补充模式：附加 project_id，并清除已有值（只发新值）
+    if (currentProjectMode === 'supplement' && currentProjectId) {
+        projectData.project_id = currentProjectId;
+    }
 
     // 覆盖表单值
     formData.forEach((value, key) => {
@@ -424,6 +612,16 @@ function confirmSmartImport() {
         }
     });
 
+    // 补充模式：只发送有值的字段（空值不发，避免覆盖已有值）
+    if (currentProjectMode === 'supplement') {
+        Object.keys(projectData).forEach(k => {
+            const v = projectData[k];
+            if (v === '' || v === null || v === undefined) {
+                delete projectData[k];
+            }
+        });
+    }
+
     fetch('/api/import/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -432,7 +630,8 @@ function confirmSmartImport() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('导入成功！即将跳转到项目详情页');
+            const msg = data.mode === 'supplement' ? '资料已补充到项目！即将跳转到项目详情页' : '导入成功！即将跳转到项目详情页';
+            alert(msg);
             window.location.href = `/project/${data.project_id}`;
         } else {
             alert(data.message);
@@ -445,6 +644,9 @@ function confirmSmartImport() {
 
 // 招标文件解析
 let currentTenderData = null;
+let currentTenderMode = 'create';
+let currentTenderProjectId = null;
+let existingTenderData = null;
 
 function handleTenderUpload(event) {
     const file = event.target.files[0];
@@ -457,13 +659,17 @@ function handleTenderUpload(event) {
     const formData = new FormData();
     formData.append('file', file);
 
+    // 传递 project_id（补充模式）
+    const projectId = document.getElementById('tenderImportSelect').value;
+    if (projectId) formData.append('project_id', projectId);
+
     fetch('/api/import/tender', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
                 resultEl.className = 'import-result success';
                 resultEl.innerHTML = `<strong>✅ 解析成功</strong><br>识别到项目：${data.project_name}<br>请在下方确认或修改后保存`;
-                showTenderPreview(data.parsed_data);
+                showTenderPreview(data.parsed_data, data.existing_data, data.project_id);
             } else {
                 resultEl.className = 'import-result error';
                 resultEl.innerHTML = `<strong>❌ 解析失败</strong><br>${data.message}`;
@@ -475,18 +681,68 @@ function handleTenderUpload(event) {
         });
 }
 
-function showTenderPreview(data) {
+function showTenderPreview(data, existing, projectId) {
     currentTenderData = data;
+    existingTenderData = existing || null;
+    currentTenderProjectId = projectId || null;
+    currentTenderMode = projectId ? 'supplement' : 'create';
+
+    // 设置标题和按钮文字
+    const titleEl = document.getElementById('tenderPreviewTitle');
+    const confirmBtn = document.getElementById('tenderConfirmBtn');
+    if (currentTenderMode === 'supplement' && existing) {
+        titleEl.innerHTML = `📋 补充项目资料 — ${existing.project_name || ''} <span style="font-size:12px; color:#e65100;">（灰色=已有保留，蓝色=新识别）</span>`;
+        confirmBtn.textContent = '确认补充到该项目';
+    } else {
+        titleEl.textContent = '📋 解析结果预览（可编辑后确认保存）';
+        confirmBtn.textContent = '确认保存为新案例';
+    }
+
     document.getElementById('tenderPreview').style.display = 'block';
-    document.getElementById('tp_project_name').value = data.project_name || '';
-    document.getElementById('tp_project_type').value = data.project_type || '网箱';
-    document.getElementById('tp_location').value = data.location || '';
-    document.getElementById('tp_province').value = data.province || '';
-    document.getElementById('tp_sea_area').value = data.sea_area || '';
-    document.getElementById('tp_project_scale').value = data.project_scale || '';
-    document.getElementById('tp_construction_period').value = data.construction_period || '';
-    document.getElementById('tp_budget').value = data.budget || '';
-    document.getElementById('tp_description').value = data.description || '';
+
+    // 基本信息（补充模式下用 setFieldWithMode）
+    const ex = existing || {};
+    const exSea = (existing && existing.sea_conditions) || {};
+    const exCage = (existing && existing.cage_params) || {};
+    const sea = data.sea_conditions || {};
+    const cage = data.cage_params || {};
+
+    // 临时切换 currentProjectMode 供 setFieldWithMode 使用
+    const savedMode = currentProjectMode;
+    currentProjectMode = currentTenderMode;
+
+    setFieldWithMode('tp_project_name', data.project_name, ex.project_name);
+    setFieldWithMode('tp_tenderer', data.tenderer, null); // 招标人不在DB中，无已有值
+    setFieldWithMode('tp_project_type', data.project_type, ex.project_type, '网箱');
+    setFieldWithMode('tp_location', data.location, ex.location);
+    setFieldWithMode('tp_province', data.province, ex.province);
+    setFieldWithMode('tp_sea_area', data.sea_area, ex.sea_area);
+    setFieldWithMode('tp_project_scale', data.project_scale, ex.project_scale);
+    setFieldWithMode('tp_construction_period', data.construction_period, ex.construction_period);
+    setFieldWithMode('tp_budget', data.budget, ex.budget);
+    setFieldWithMode('tp_delivery_location', data.delivery_location, null);
+
+    // 海况参数
+    setFieldWithMode('tp_water_depth', sea.water_depth, exSea.water_depth);
+    setFieldWithMode('tp_max_wave_height', sea.max_wave_height, exSea.max_wave_height);
+    setFieldWithMode('tp_max_flow_speed', sea.max_flow_speed, exSea.max_flow_speed);
+    setFieldWithMode('tp_typhoon_level', sea.typhoon_level, null);
+    setFieldWithMode('tp_temperature_range', sea.temperature_range, null);
+    setFieldWithMode('tp_sea_area_size', sea.sea_area_size, null);
+    setFieldWithMode('tp_offshore_distance', sea.offshore_distance, null);
+    setFieldWithMode('tp_seabed_type', sea.seabed_type, exSea.seabed_type);
+
+    // 网箱参数
+    setFieldWithMode('tp_cage_count', cage.cage_count, exCage.cage_count);
+    setFieldWithMode('tp_perimeter', cage.perimeter, exCage.perimeter);
+    setFieldWithMode('tp_pipe_diameter', cage.pipe_diameter, exCage.pipe_diameter);
+    setFieldWithMode('tp_cage_type', cage.cage_type, exCage.cage_type);
+
+    // 描述
+    setFieldWithMode('tp_description', data.description, ex.description);
+
+    // 恢复
+    currentProjectMode = savedMode;
 
     // 展示货物需求
     const goodsSection = document.getElementById('goodsSection');
@@ -519,13 +775,15 @@ function showTenderPreview(data) {
         goodsSection.style.display = 'none';
     }
 
-    // 切换到招标文件tab
     switchTab('tender');
 }
 
 function hideTenderPreview() {
     document.getElementById('tenderPreview').style.display = 'none';
     currentTenderData = null;
+    currentTenderMode = 'create';
+    currentTenderProjectId = null;
+    existingTenderData = null;
 }
 
 function saveTenderProject() {
@@ -536,19 +794,66 @@ function saveTenderProject() {
     const formData = new FormData(form);
 
     const projectData = { ...currentTenderData };
+
+    // 海况参数字段
+    const seaFields = ['water_depth', 'max_wave_height', 'max_flow_speed', 'typhoon_level',
+                       'temperature_range', 'sea_area_size', 'offshore_distance', 'seabed_type'];
+    // 网箱参数字段
+    const cageFields = ['cage_count', 'perimeter', 'pipe_diameter', 'cage_type'];
+
+    if (!projectData.sea_conditions) projectData.sea_conditions = {};
+    if (!projectData.cage_params) projectData.cage_params = {};
+
     formData.forEach((value, key) => {
-        projectData[key] = value;
+        if (seaFields.includes(key)) {
+            projectData.sea_conditions[key] = value;
+        } else if (cageFields.includes(key)) {
+            projectData.cage_params[key] = value;
+        } else {
+            projectData[key] = value;
+        }
     });
+
+    // 补充模式：只发送有值的字段，附加 project_id
+    const payload = { project_data: projectData };
+    if (currentTenderMode === 'supplement' && currentTenderProjectId) {
+        payload.project_id = currentTenderProjectId;
+        // 清除空值，避免覆盖已有值
+        Object.keys(projectData).forEach(k => {
+            const v = projectData[k];
+            if (v === '' || v === null || v === undefined) {
+                delete projectData[k];
+            }
+        });
+        // 同样清除嵌套字典中的空值
+        if (projectData.sea_conditions) {
+            Object.keys(projectData.sea_conditions).forEach(k => {
+                const v = projectData.sea_conditions[k];
+                if (v === '' || v === null || v === undefined) {
+                    delete projectData.sea_conditions[k];
+                }
+            });
+        }
+        if (projectData.cage_params) {
+            Object.keys(projectData.cage_params).forEach(k => {
+                const v = projectData.cage_params[k];
+                if (v === '' || v === null || v === undefined) {
+                    delete projectData.cage_params[k];
+                }
+            });
+        }
+    }
 
     fetch('/api/import/tender/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_data: projectData })
+        body: JSON.stringify(payload)
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('保存成功！即将跳转到项目详情页');
+            const msg = data.mode === 'supplement' ? '资料已补充到项目！即将跳转到项目详情页' : '保存成功！即将跳转到项目详情页';
+            alert(msg);
             window.location.href = `/project/${data.project_id}`;
         } else {
             alert(data.message);
