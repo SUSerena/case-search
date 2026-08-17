@@ -663,6 +663,75 @@ def add_photo(project_id, file_name, file_path, file_type, file_size, photo_type
     conn.close()
 
 
+# ====================== 删除/替换操作 ======================
+
+def delete_project(project_id):
+    """删除项目及其所有关联数据（级联删除）"""
+    conn = get_conn()
+    cursor = conn.cursor()
+    # 删除关联表
+    cursor.execute('DELETE FROM drawings WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM photos WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM materials WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM sea_conditions WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM cage_params WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM platform_params WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM breakwater_params WHERE project_id = ?', (project_id,))
+    cursor.execute('DELETE FROM projects WHERE id = ?', (project_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_drawing(drawing_id):
+    """删除图纸记录，返回文件路径供删除文件"""
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute('SELECT file_path FROM drawings WHERE id = ?', (drawing_id,))
+    row = cursor.fetchone()
+    file_path = dict(row)['file_path'] if row else None
+    cursor.execute('DELETE FROM drawings WHERE id = ?', (drawing_id,))
+    conn.commit()
+    conn.close()
+    return file_path
+
+
+def delete_photo(photo_id):
+    """删除照片记录，返回文件路径供删除文件"""
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute('SELECT file_path FROM photos WHERE id = ?', (photo_id,))
+    row = cursor.fetchone()
+    file_path = dict(row)['file_path'] if row else None
+    cursor.execute('DELETE FROM photos WHERE id = ?', (photo_id,))
+    conn.commit()
+    conn.close()
+    return file_path
+
+
+def replace_drawing(drawing_id, file_name, file_path, file_type, file_size):
+    """替换图纸文件信息"""
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE drawings SET file_name = ?, file_path = ?, file_type = ?, file_size = ?
+    WHERE id = ?
+    ''', (file_name, file_path, file_type, file_size, drawing_id))
+    conn.commit()
+    conn.close()
+
+
+def replace_photo(photo_id, file_name, file_path, file_type, file_size):
+    """替换照片文件信息"""
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE photos SET file_name = ?, file_path = ?, file_type = ?, file_size = ?
+    WHERE id = ?
+    ''', (file_name, file_path, file_type, file_size, photo_id))
+    conn.commit()
+    conn.close()
+
+
 def add_materials(project_id, materials_list):
     """批量添加材料记录"""
     if not materials_list:

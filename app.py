@@ -17,10 +17,12 @@ from utils.db import (
     project_exists, insert_project, add_drawing, add_photo,
     get_all_projects_for_matching, update_project, get_conn,
     get_all_users, toggle_user_status, get_access_logs,
-    update_user_status, delete_user, get_pending_user_count
+    update_user_status, delete_user, get_pending_user_count,
+    delete_project, delete_drawing, delete_photo,
+    replace_drawing, replace_photo
 )
 from utils.matcher import match_projects
-from utils.parser import parse_project_excel, import_project_from_excel
+from utils.parser import parse_project_excel, import_project_from_excel, parse_smart
 from utils.tender_parser import parse_tender_document, get_supported_formats
 from utils.init_data import init_sample_data
 from utils.location import get_all_sea_areas
@@ -112,6 +114,120 @@ def project_edit(project_id):
         return redirect(url_for('project_detail', project_id=project_id))
 
     return render_template('edit.html', project=project, sea_areas=get_all_sea_areas())
+
+
+# ====================== 删除/替换操作 ======================
+
+def _safe_remove_file(file_path):
+    """安全删除文件"""
+    if file_path:
+        full_path = os.path.join(BASE_DIR, file_path) if not os.path.isabs(file_path) else file_path
+        try:
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        except Exception:
+            pass
+
+
+@app.route('/project/<int:project_id>/delete', methods=['POST'])
+@login_required
+def project_delete(project_id):
+    """删除案例（级联删除）"""
+    project = get_project_detail(project_id)
+    if not project:
+        return "项目不存在", 404
+    # 删除关联文件
+    for d in project.get('drawings', []):
+        _safe_remove_file(d.get('file_path'))
+    for p in project.get('photos', []):
+        _safe_remove_file(p.get('file_path'))
+    delete_project(project_id)
+    return redirect(url_for('index', deleted='1'))
+
+
+@app.route('/project/<int:project_id>/drawing/<int:drawing_id>/delete', methods=['POST'])
+@login_required
+def drawing_delete(project_id, drawing_id):
+    """删除单张图纸"""
+    file_path = delete_drawing(drawing_id)
+    _safe_remove_file(file_path)
+    return redirect(url_for('project_detail', project_id=project_id))
+
+
+@app.route('/project/<int:project_id>/drawing/<int:drawing_id>/replace', methods=['POST'])
+@login_required
+def drawing_replace(project_id, drawing_id):
+    """替换图纸文件"""
+    if 'file' not in request.files:
+        return redirect(url_for('project_detail', project_id=project_id))
+    f = request.files['file']
+    if not f.filename:
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    # 保存旧路径，稍后删除旧文件
+    old_path = None
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute('SELECT file_path FROM drawings WHERE id = ?', (drawing_id,))
+    row = cur.fetchone()
+    if row:
+        old_path = dict(row)['file_path']
+    conn.close()
+
+    upload_dir = os.path.join(BASE_DIR, 'static', 'uploads', 'drawings')
+    os.makedirs(upload_dir, exist_ok=True)
+    import uuid
+    ext = os.path.splitext(f.filename)[1].lower()
+    new_name = f'drawing_{project_id}_{uuid.uuid4().hex[:8]}{ext}'
+    save_path = os.path.join(upload_dir, new_name)
+    f.save(save_path)
+    rel_path = os.path.join('static', 'uploads', 'drawings', new_name)
+
+    replace_drawing(drawing_id, f.filename, rel_path, ext.lstrip('.'), os.path.getsize(save_path))
+    _safe_remove_file(old_path)
+    return redirect(url_for('project_detail', project_id=project_id))
+
+
+@app.route('/project/<int:project_id>/photo/<int:photo_id>/delete', methods=['POST'])
+@login_required
+def photo_delete(project_id, photo_id):
+    """删除单张照片"""
+    file_path = delete_photo(photo_id)
+    _safe_remove_file(file_path)
+    return redirect(url_for('project_detail', project_id=project_id))
+
+
+@app.route('/project/<int:project_id>/photo/<int:photo_id>/replace', methods=['POST'])
+@login_required
+def photo_replace(project_id, photo_id):
+    """替换照片文件"""
+    if 'file' not in request.files:
+        return redirect(url_for('project_detail', project_id=project_id))
+    f = request.files['file']
+    if not f.filename:
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    old_path = None
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute('SELECT file_path FROM photos WHERE id = ?', (photo_id,))
+    row = cur.fetchone()
+    if row:
+        old_path = dict(row)['file_path']
+    conn.close()
+
+    upload_dir = os.path.join(BASE_DIR, 'static', 'uploads', 'photos')
+    os.makedirs(upload_dir, exist_ok=True)
+    import uuid
+    ext = os.path.splitext(f.filename)[1].lower()
+    new_name = f'photo_{project_id}_{uuid.uuid4().hex[:8]}{ext}'
+    save_path = os.path.join(upload_dir, new_name)
+    f.save(save_path)
+    rel_path = os.path.join('static', 'uploads', 'photos', new_name)
+
+    replace_photo(photo_id, f.filename, rel_path, ext.lstrip('.'), os.path.getsize(save_path))
+    _safe_remove_file(old_path)
+    return redirect(url_for('project_detail', project_id=project_id))
 
 
 @app.route('/import')
@@ -288,7 +404,7 @@ def api_project_detail(project_id):
 
 @app.route('/api/import/excel', methods=['POST'])
 def api_import_excel():
-    """导入Excel项目信息表"""
+    """智能识别导入项目信息（支持Excel/Word/PDF/TXT）"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': '请选择文件'}), 400
 
@@ -298,34 +414,58 @@ def api_import_excel():
 
     # 保存文件
     filename = file.filename
-    save_path = os.path.join(UPLOAD_DIR, 'drawings', filename)
+    save_path = os.path.join(UPLOAD_DIR, 'temp', filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     file.save(save_path)
 
     try:
-        # 解析Excel
-        data = parse_project_excel(save_path)
+        # 智能识别解析
+        data, raw_text, file_format = parse_smart(save_path)
 
-        if not data['project_name']:
-            return jsonify({'success': False, 'message': '未能识别出项目名称，请检查文件格式'}), 400
-
-        if project_exists(data['project_name']):
-            return jsonify({
-                'success': False,
-                'message': f"项目 '{data['project_name']}' 已存在"
-            }), 400
-
-        project_id = insert_project(data)
+        # 删除临时文件
+        try:
+            os.remove(save_path)
+        except:
+            pass
 
         return jsonify({
             'success': True,
-            'message': f"导入成功：{data['project_name']}",
-            'project_id': project_id,
-            'project_name': data['project_name'],
-            'parsed_data': data
+            'message': f'智能识别完成（{file_format}格式）',
+            'parsed_data': data,
+            'raw_text': raw_text[:5000],
+            'file_format': file_format
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'message': f'导入失败：{str(e)}'}), 500
+        # 删除临时文件
+        try:
+            os.remove(save_path)
+        except:
+            pass
+        return jsonify({'success': False, 'message': f'解析失败：{str(e)}'}), 500
+
+
+@app.route('/api/import/confirm', methods=['POST'])
+def api_import_confirm():
+    """确认导入：用户确认智能识别结果后保存"""
+    data = request.get_json() or {}
+
+    project_name = data.get('project_name', '').strip()
+    if not project_name:
+        return jsonify({'success': False, 'message': '项目名称不能为空'}), 400
+
+    if project_exists(project_name):
+        return jsonify({'success': False, 'message': f"项目 '{project_name}' 已存在"}), 400
+
+    try:
+        project_id = insert_project(data)
+        return jsonify({
+            'success': True,
+            'message': f'导入成功：{project_name}',
+            'project_id': project_id
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'保存失败：{str(e)}'}), 500
 
 
 # ====================== 文件服务 ======================

@@ -507,3 +507,288 @@ def import_project_from_excel(excel_path, drawings_dir=None, photos_dir=None):
                 add_photo(project_id, f, fpath, 'image', fsize, '项目照片')
 
     return project_id
+
+
+# ====================== 智能识别导入 ======================
+
+# 字段关键词映射表：关键词 → 字段路径
+# 每条：(关键词列表, 数据路径)
+FIELD_KEYWORDS = [
+    # 基本信息
+    (['项目名称', '工程名称', '项目名'], ['project_name']),
+    (['业务人员', '负责人', '业务员', '业务代表', '销售'], ['sales_person']),
+    (['项目类型', '产品类型', '类型'], ['project_type']),
+    (['确认时间', '签订日期', '合同日期'], ['confirm_date']),
+    (['项目地点', '位置', '所在地', '海域', '地点', '施工地点', '工程地点'], ['location']),
+    (['坐标', '经纬度'], ['coordinates']),
+    (['工期', '施工工期', '合同工期'], ['construction_period']),
+    (['预算', '造价', '投资', '合同金额', '中标价'], ['budget']),
+    (['数量', '网箱数量', '台数', '套数'], ['quantity']),
+    (['面积', '养殖面积', '海域面积'], ['area']),
+    # 海况参数
+    (['水深', '深度', '满潮水深', '设计水深'], ['sea_conditions', 'water_depth']),
+    (['水位差', '潮差'], ['sea_conditions', 'water_level_diff']),
+    (['波高', '波浪', '最大波高'], ['sea_conditions', 'max_wave_height']),
+    (['流速', '海流', '最大流速'], ['sea_conditions', 'max_flow_speed']),
+    (['流向'], ['sea_conditions', 'flow_direction']),
+    (['风速', '最大风速'], ['sea_conditions', 'max_wind_speed']),
+    (['风向', '常风向'], ['sea_conditions', 'common_wind_direction']),
+    (['底质', '海底', '海床', '地质'], ['sea_conditions', 'seabed_type']),
+    # 网箱参数
+    (['管径', '主管径', 'DN'], ['cage_params', 'pipe_diameter']),
+    (['周长', '直径', '周长直径'], ['cage_params', '_perimeter_text']),
+    (['网箱类型', '网箱形式'], ['cage_params', 'cage_type']),
+    (['网箱数量', '网箱数'], ['cage_params', 'cage_count']),
+    (['支架间距'], ['cage_params', 'bracket_spacing']),
+    (['过道宽度', '走道宽度'], ['cage_params', 'walkway_width']),
+    (['系缆加强', '套管'], ['cage_params', 'mooring_sleeve']),
+    (['锚点数量', '锚点数'], ['cage_params', 'anchor_point_count']),
+    (['网衣需求', '网衣'], ['cage_params', 'net_demand']),
+    # 平台参数
+    (['造型要求', '平台造型'], ['platform_params', 'shape_requirement']),
+    (['承载力', '承载能力'], ['platform_params', 'bearing_capacity']),
+    (['靠泊船只', '靠泊'], ['platform_params', 'docking_ships']),
+    (['附属设施'], ['platform_params', '附属设施']),
+    # 防波堤参数
+    (['减波率', '减波'], ['breakwater_params', 'wave_reduction_rate']),
+    (['防波堤规格', '规格选型'], ['breakwater_params', 'spec_type']),
+    # 描述
+    (['其他要求', '特殊要求', '备注', '说明'], ['description']),
+]
+
+
+def parse_smart(file_path):
+    """
+    智能识别导入：自动识别Excel/Word/PDF/TXT中的项目信息
+    不依赖固定模板格式，通过关键词模糊匹配提取字段
+    返回: (data, raw_text, file_format)
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    raw_text = ''
+    file_format = ''
+
+    if ext in ('.xlsx', '.xls'):
+        file_format = 'excel'
+        raw_text = _extract_excel_text(file_path)
+    elif ext == '.docx':
+        file_format = 'word'
+        raw_text = _extract_word_text(file_path)
+    elif ext == '.pdf':
+        file_format = 'pdf'
+        raw_text = _extract_pdf_text(file_path)
+    elif ext == '.txt':
+        file_format = 'txt'
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            raw_text = f.read()
+    else:
+        raise Exception(f"不支持的文件格式: {ext}")
+
+    if not raw_text.strip():
+        raise Exception("文件内容为空，无法识别")
+
+    # 智能识别字段
+    data = _smart_match_fields(raw_text)
+
+    # 补充地域信息
+    text_for_detect = ' '.join([str(v) for v in [
+        data.get('project_name', ''), data.get('location', ''), data.get('description', '')
+    ] if v])
+    city, province, sea_area = detect_location(text_for_detect)
+    if city and (not data.get('location') or len(data['location']) < 2):
+        data['location'] = city
+    if province:
+        data['province'] = province
+    if sea_area:
+        data['sea_area'] = sea_area
+
+    return data, raw_text, file_format
+
+
+def _extract_excel_text(file_path):
+    """提取Excel所有sheet的文本内容"""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(file_path, data_only=True)
+        lines = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            lines.append(f'[{sheet_name}]')
+            for row in ws.iter_rows(values_only=True):
+                cells = [str(c).strip() if c is not None else '' for c in row]
+                if any(c for c in cells):
+                    lines.append('\t'.join(cells))
+        return '\n'.join(lines)
+    except Exception as e:
+        raise Exception(f"读取Excel失败: {e}（可能需要安装 openpyxl: pip install openpyxl）")
+
+
+def _extract_word_text(file_path):
+    """提取Word文档文本"""
+    try:
+        from docx import Document
+        doc = Document(file_path)
+        lines = []
+        # 段落
+        for para in doc.paragraphs:
+            if para.text.strip():
+                lines.append(para.text.strip())
+        # 表格
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells]
+                if any(c for c in cells):
+                    lines.append('\t'.join(cells))
+        return '\n'.join(lines)
+    except ImportError:
+        raise Exception("解析Word需要安装 python-docx: pip install python-docx")
+    except Exception as e:
+        raise Exception(f"读取Word失败: {e}")
+
+
+def _extract_pdf_text(file_path):
+    """提取PDF文本"""
+    try:
+        import pdfplumber
+        lines = []
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    lines.append(text)
+                # 也提取表格
+                tables = page.extract_tables()
+                for table in tables:
+                    for row in table:
+                        cells = [str(c).strip() if c else '' for c in row]
+                        if any(c for c in cells):
+                            lines.append('\t'.join(cells))
+        return '\n'.join(lines)
+    except ImportError:
+        raise Exception("解析PDF需要安装 pdfplumber: pip install pdfplumber")
+    except Exception as e:
+        raise Exception(f"读取PDF失败: {e}")
+
+
+def _smart_match_fields(text):
+    """用关键词模糊匹配从文本中提取字段值"""
+    lines = text.split('\n')
+    data = {
+        'project_name': '', 'project_type': '', 'sales_person': '',
+        'confirm_date': '', 'location': '', 'coordinates': '',
+        'description': '', 'construction_period': '', 'budget': '',
+        'quantity': '', 'area': '',
+        'sea_conditions': {}, 'cage_params': {},
+        'platform_params': {}, 'breakwater_params': {}
+    }
+
+    matched_fields = set()  # 已匹配字段，避免重复
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # 尝试用冒号/制表符分割为 key:value 对
+        parts = _split_kv(line)
+        if not parts:
+            continue
+
+        for key, value in parts:
+            value = str(value).strip()
+            if not value or value == 'None' or value == 'nan':
+                continue
+
+            for keywords, path in FIELD_KEYWORDS:
+                field_key = '.'.join(path)
+                if field_key in matched_fields:
+                    continue
+
+                # 检查key是否包含任何关键词
+                if any(kw in key for kw in keywords):
+                    _set_nested(data, path, _clean_value(value, path[-1]))
+                    matched_fields.add(field_key)
+                    break
+
+    return data
+
+
+def _split_kv(line):
+    """
+    将一行文本拆分为(key, value)对列表
+    支持: "key: value" / "key\tvalue" / "key：value"
+    也支持一行多对: "key1\tvalue1\tkey2\tvalue2"
+    """
+    pairs = []
+
+    # 先尝试按冒号分割
+    if '：' in line or ': ' in line:
+        if '：' in line:
+            parts = line.split('：', 1)
+        else:
+            parts = line.split(': ', 1)
+        if len(parts) == 2:
+            pairs.append((parts[0].strip(), parts[1].strip()))
+            return pairs
+
+    # 按制表符分割
+    if '\t' in line:
+        cells = [c.strip() for c in line.split('\t')]
+        # 相邻两两配对: key, value, key, value...
+        i = 0
+        while i + 1 < len(cells):
+            if cells[i] and cells[i + 1]:
+                pairs.append((cells[i], cells[i + 1]))
+            i += 2
+        return pairs
+
+    # 按连续空格分割
+    cells = line.split()
+    if len(cells) >= 2:
+        i = 0
+        while i + 1 < len(cells):
+            if cells[i] and cells[i + 1]:
+                pairs.append((cells[i], cells[i + 1]))
+            i += 2
+
+    return pairs
+
+
+def _set_nested(data, path, value):
+    """在嵌套dict中设置值"""
+    if len(path) == 1:
+        data[path[0]] = value
+    else:
+        key = path[0]
+        if key not in data:
+            data[key] = {}
+        data[key][path[1]] = value
+
+
+def _clean_value(value, field_name):
+    """清理字段值，根据字段类型做适当处理"""
+    if not value:
+        return ''
+    # 数值类字段：提取数字
+    numeric_fields = ['water_depth', 'water_level_diff', 'max_wave_height',
+                      'max_flow_speed', 'max_wind_speed', 'cage_count',
+                      'anchor_point_count']
+    if field_name in numeric_fields:
+        num = _extract_number(value)
+        if num is not None:
+            return num
+    # 管径字段：保留原文
+    if field_name == 'pipe_diameter':
+        # 去掉"DN"前缀保留数字
+        m = re.search(r'DN?\s*(\d+)', str(value))
+        if m:
+            return f'DN{m.group(1)}'
+        return str(value)
+    # 周长文本：保留原文供后续提取
+    if field_name == '_perimeter_text':
+        text = str(value)
+        perim = _extract_perimeter(text)
+        if perim:
+            return text  # 保留原文，后续在insert时处理
+        return text
+    return str(value).strip()
+

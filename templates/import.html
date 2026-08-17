@@ -43,14 +43,87 @@
 
                 <div class="import-result" id="excelResult"></div>
 
+                <!-- 智能识别预览 -->
+                <div id="smartPreview" style="display: none; margin-top: 24px;">
+                    <div style="background: #e3f2fd; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; color: #1565c0;">
+                        <strong>系统自动识别结果</strong> — 以下字段由智能识别提取，请确认或修改后保存
+                    </div>
+                    <form id="smartPreviewForm">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">项目名称 <span class="required">*</span></label>
+                                <input type="text" name="project_name" class="form-input" id="sp_project_name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">业务人员</label>
+                                <input type="text" name="sales_person" class="form-input" id="sp_sales_person">
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">项目类型</label>
+                                <select name="project_type" class="form-select" id="sp_project_type">
+                                    <option value="网箱">网箱</option>
+                                    <option value="平台">平台</option>
+                                    <option value="平台＋网箱">平台＋网箱</option>
+                                    <option value="防波堤">防波堤</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">项目地点</label>
+                                <input type="text" name="location" class="form-input" id="sp_location">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">确认时间</label>
+                                <input type="text" name="confirm_date" class="form-input" id="sp_confirm_date">
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">水深(m)</label>
+                                <input type="text" name="water_depth" class="form-input" id="sp_water_depth">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大波高(m)</label>
+                                <input type="text" name="max_wave_height" class="form-input" id="sp_max_wave_height">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大流速(m/s)</label>
+                                <input type="text" name="max_flow_speed" class="form-input" id="sp_max_flow_speed">
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">管径</label>
+                                <input type="text" name="pipe_diameter" class="form-input" id="sp_pipe_diameter">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">周长/直径</label>
+                                <input type="text" name="perimeter_text" class="form-input" id="sp_perimeter">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">备注/描述</label>
+                            <textarea name="description" class="form-textarea" rows="3" id="sp_description"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                            <button type="button" class="btn btn-secondary" onclick="hideSmartPreview()">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="confirmSmartImport()">确认保存为新案例</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div style="margin-top: 24px; padding: 16px; background: var(--bg); border-radius: var(--radius-sm);">
-                    <h4 style="margin-bottom: 10px; font-size: 14px;">📋 支持的格式</h4>
+                    <h4 style="margin-bottom: 10px; font-size: 14px;">📋 支持的格式（智能识别，不限定模板）</h4>
                     <ul style="font-size: 13px; color: var(--text-light); padding-left: 20px; line-height: 2;">
-                        <li><strong>Excel (.xlsx/.xls)</strong> - 使用系统标准「项目信息表」模板，自动识别所有字段</li>
-                        <li><strong>Word (.docx)</strong> - 从Word文档中提取项目信息（需安装python-docx）</li>
-                        <li><strong>PDF</strong> - 从PDF文档中提取文字并解析（需安装PyPDF2或pdfplumber）</li>
+                        <li><strong>Excel (.xlsx/.xls)</strong> - 自动扫描所有Sheet，通过关键词智能识别字段</li>
+                        <li><strong>Word (.docx)</strong> - 提取段落和表格内容，智能匹配字段</li>
+                        <li><strong>PDF</strong> - 提取文字和表格，智能解析（需安装pdfplumber）</li>
                         <li><strong>TXT</strong> - 纯文本格式，按关键词提取信息</li>
                     </ul>
+                    <p style="font-size: 12px; color: var(--text-lighter); margin-top: 8px;">
+                        * 系统会自动识别"项目名称""水深""波高""管径"等关键词并提取对应值，无需固定模板格式
+                    </p>
                 </div>
             </div>
         </div>
@@ -78,6 +151,15 @@
                 <!-- 解析结果预览 -->
                 <div id="tenderPreview" style="display: none; margin-top: 24px;">
                     <h4 style="margin-bottom: 16px;">📋 解析结果预览（可编辑后确认保存）</h4>
+
+                    <!-- 货物需求突出展示 -->
+                    <div id="goodsSection" style="display: none; margin-bottom: 20px; padding: 16px; background: #fff3e0; border: 2px solid #ff9800; border-radius: var(--radius-sm);">
+                        <h4 style="margin-bottom: 12px; font-size: 15px; color: #e65100;">
+                            📦 货物需求/采购清单（重点提取）
+                        </h4>
+                        <div id="goodsList"></div>
+                    </div>
+
                     <form id="tenderPreviewForm">
                         <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div class="form-group">
@@ -256,57 +338,109 @@ function loadProjects() {
         });
 }
 
-// 项目信息导入
+// 项目信息导入（智能识别）
+let currentSmartData = null;
+
 function handleProjectUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     const resultEl = document.getElementById('excelResult');
     resultEl.className = 'import-result';
-    resultEl.innerHTML = '<div class="loading"></div> 正在解析文件...';
+    resultEl.innerHTML = '<div class="loading"></div> 正在智能识别文件内容...';
+    document.getElementById('smartPreview').style.display = 'none';
 
-    const ext = file.name.split('.').pop().toLowerCase();
+    const formData = new FormData();
+    formData.append('file', file);
 
-    // Excel格式走原有的项目信息表解析
-    if (ext === 'xls' || ext === 'xlsx') {
-        const formData = new FormData();
-        formData.append('file', file);
-        fetch('/api/import/excel', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    resultEl.className = 'import-result success';
-                    resultEl.innerHTML = `<strong>✅ 导入成功</strong><br>项目名称：${data.project_name}<br><a href="/project/${data.project_id}">查看项目详情 →</a>`;
-                    loadProjects();
-                } else {
-                    resultEl.className = 'import-result error';
-                    resultEl.innerHTML = `<strong>❌ 导入失败</strong><br>${data.message}`;
-                }
-            })
-            .catch(err => {
+    fetch('/api/import/excel', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                resultEl.className = 'import-result success';
+                resultEl.innerHTML = `<strong>✅ 智能识别完成（${data.file_format}格式）</strong><br>请在下方确认或修改字段后保存`;
+                showSmartPreview(data.parsed_data);
+            } else {
                 resultEl.className = 'import-result error';
-                resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
-            });
-    } else {
-        // 其他格式走招标文件解析流程
-        const formData = new FormData();
-        formData.append('file', file);
-        fetch('/api/import/tender', { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    resultEl.className = 'import-result success';
-                    resultEl.innerHTML = `<strong>✅ 解析成功</strong><br>项目名称：${data.project_name}<br>切换到「招标文件智能分析」查看详情并保存`;
-                    showTenderPreview(data.parsed_data);
-                } else {
-                    resultEl.className = 'import-result error';
-                    resultEl.innerHTML = `<strong>❌ 解析失败</strong><br>${data.message}`;
-                }
-            })
-            .catch(err => {
-                resultEl.className = 'import-result error';
-                resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
-            });
+                resultEl.innerHTML = `<strong>❌ 识别失败</strong><br>${data.message}`;
+            }
+        })
+        .catch(err => {
+            resultEl.className = 'import-result error';
+            resultEl.innerHTML = `<strong>❌ 上传失败</strong><br>${err.message}`;
+        });
+}
+
+function showSmartPreview(data) {
+    currentSmartData = data;
+    document.getElementById('smartPreview').style.display = 'block';
+    document.getElementById('sp_project_name').value = data.project_name || '';
+    document.getElementById('sp_sales_person').value = data.sales_person || '';
+    document.getElementById('sp_project_type').value = data.project_type || '网箱';
+    document.getElementById('sp_location').value = data.location || '';
+    document.getElementById('sp_confirm_date').value = data.confirm_date || '';
+    document.getElementById('sp_water_depth').value = (data.sea_conditions && data.sea_conditions.water_depth) || '';
+    document.getElementById('sp_max_wave_height').value = (data.sea_conditions && data.sea_conditions.max_wave_height) || '';
+    document.getElementById('sp_max_flow_speed').value = (data.sea_conditions && data.sea_conditions.max_flow_speed) || '';
+    document.getElementById('sp_pipe_diameter').value = (data.cage_params && data.cage_params.pipe_diameter) || '';
+    document.getElementById('sp_perimeter').value = (data.cage_params && data.cage_params._perimeter_text) || '';
+    document.getElementById('sp_description').value = data.description || '';
+}
+
+function hideSmartPreview() {
+    document.getElementById('smartPreview').style.display = 'none';
+    currentSmartData = null;
+}
+
+function confirmSmartImport() {
+    const projectName = document.getElementById('sp_project_name').value.trim();
+    if (!projectName) {
+        alert('项目名称不能为空');
+        return;
     }
+
+    // 从表单收集数据
+    const formData = new FormData(document.getElementById('smartPreviewForm'));
+    const projectData = { ...currentSmartData };
+
+    // 覆盖表单值
+    formData.forEach((value, key) => {
+        if (key === 'water_depth') {
+            if (!projectData.sea_conditions) projectData.sea_conditions = {};
+            projectData.sea_conditions.water_depth = parseFloat(value) || null;
+        } else if (key === 'max_wave_height') {
+            if (!projectData.sea_conditions) projectData.sea_conditions = {};
+            projectData.sea_conditions.max_wave_height = parseFloat(value) || null;
+        } else if (key === 'max_flow_speed') {
+            if (!projectData.sea_conditions) projectData.sea_conditions = {};
+            projectData.sea_conditions.max_flow_speed = parseFloat(value) || null;
+        } else if (key === 'pipe_diameter') {
+            if (!projectData.cage_params) projectData.cage_params = {};
+            projectData.cage_params.pipe_diameter = value;
+        } else if (key === 'perimeter_text') {
+            if (!projectData.cage_params) projectData.cage_params = {};
+            projectData.cage_params._perimeter_text = value;
+        } else {
+            projectData[key] = value;
+        }
+    });
+
+    fetch('/api/import/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('导入成功！即将跳转到项目详情页');
+            window.location.href = `/project/${data.project_id}`;
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => {
+        alert('保存失败：' + err.message);
+    });
 }
 
 // 招标文件解析
@@ -353,6 +487,37 @@ function showTenderPreview(data) {
     document.getElementById('tp_construction_period').value = data.construction_period || '';
     document.getElementById('tp_budget').value = data.budget || '';
     document.getElementById('tp_description').value = data.description || '';
+
+    // 展示货物需求
+    const goodsSection = document.getElementById('goodsSection');
+    const goodsList = document.getElementById('goodsList');
+    if (data.goods_requirements && data.goods_requirements.length > 0) {
+        goodsSection.style.display = 'block';
+        let html = '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
+        html += '<thead><tr style="background: #ffe0b2;">';
+        html += '<th style="padding: 8px; text-align: left; border-bottom: 1px solid #ffb74d;">序号</th>';
+        html += '<th style="padding: 8px; text-align: left; border-bottom: 1px solid #ffb74d;">货物名称</th>';
+        html += '<th style="padding: 8px; text-align: left; border-bottom: 1px solid #ffb74d;">规格型号</th>';
+        html += '<th style="padding: 8px; text-align: left; border-bottom: 1px solid #ffb74d;">数量</th>';
+        html += '<th style="padding: 8px; text-align: left; border-bottom: 1px solid #ffb74d;">技术要求</th>';
+        html += '</tr></thead><tbody>';
+        data.goods_requirements.forEach((g, i) => {
+            html += `<tr style="border-bottom: 1px solid #ffe0b2;">`;
+            html += `<td style="padding: 8px;">${i + 1}</td>`;
+            html += `<td style="padding: 8px; font-weight: 500;">${g.name || ''}</td>`;
+            html += `<td style="padding: 8px;">${g.spec || ''}</td>`;
+            html += `<td style="padding: 8px;">${g.quantity || ''}</td>`;
+            html += `<td style="padding: 8px;">${g.requirements || ''}</td>`;
+            html += `</tr>`;
+        });
+        html += '</tbody></table>';
+        if (data.summary) {
+            html += `<div style="margin-top: 12px; padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #e65100; white-space: pre-wrap;">${data.summary}</div>`;
+        }
+        goodsList.innerHTML = html;
+    } else {
+        goodsSection.style.display = 'none';
+    }
 
     // 切换到招标文件tab
     switchTab('tender');

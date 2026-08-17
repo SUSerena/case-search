@@ -46,6 +46,13 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 编辑案例
             </a>
+            <form method="POST" action="{{ url_for('project_delete', project_id=project.id) }}" style="display: inline;"
+                  onsubmit="return confirm('确认删除案例「{{ project.project_name }}」？\n删除后不可恢复，所有关联的图纸、照片和材料数据将一并删除。');">
+                <button type="submit" class="btn btn-danger" style="background: var(--danger); color: #fff; border: none; cursor: pointer;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    删除案例
+                </button>
+            </form>
         </div>
     </div>
 
@@ -278,6 +285,18 @@
                 <div class="drawing-info">
                     <div class="drawing-name" title="{{ d.file_name }}">{{ d.file_name }}</div>
                     <div class="drawing-size">{{ (d.file_size / 1024)|round(1) }} KB</div>
+                    <div class="drawing-actions" style="margin-top: 6px;" onclick="event.stopPropagation();">
+                        <form method="POST" action="{{ url_for('drawing_replace', project_id=project.id, drawing_id=d.id) }}" enctype="multipart/form-data" style="display: inline;">
+                            <label style="font-size: 12px; color: var(--secondary); cursor: pointer; text-decoration: underline;">
+                                替换
+                                <input type="file" name="file" style="display: none;" onchange="this.form.submit()">
+                            </label>
+                        </form>
+                        <form method="POST" action="{{ url_for('drawing_delete', project_id=project.id, drawing_id=d.id) }}" style="display: inline;"
+                              onsubmit="return confirm('确认删除图纸「{{ d.file_name }}」？');">
+                            <button type="submit" style="font-size: 12px; color: var(--danger); background: none; border: none; cursor: pointer; text-decoration: underline;">删除</button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% endfor %}
@@ -301,6 +320,18 @@
                 <div class="drawing-info">
                     <div class="drawing-name" title="{{ p.file_name }}">{{ p.file_name }}</div>
                     <div class="drawing-size">{{ (p.file_size / 1024)|round(1) }} KB</div>
+                    <div class="drawing-actions" style="margin-top: 6px;" onclick="event.stopPropagation();">
+                        <form method="POST" action="{{ url_for('photo_replace', project_id=project.id, photo_id=p.id) }}" enctype="multipart/form-data" style="display: inline;">
+                            <label style="font-size: 12px; color: var(--secondary); cursor: pointer; text-decoration: underline;">
+                                替换
+                                <input type="file" name="file" style="display: none;" onchange="this.form.submit()">
+                            </label>
+                        </form>
+                        <form method="POST" action="{{ url_for('photo_delete', project_id=project.id, photo_id=p.id) }}" style="display: inline;"
+                              onsubmit="return confirm('确认删除照片「{{ p.file_name }}」？');">
+                            <button type="submit" style="font-size: 12px; color: var(--danger); background: none; border: none; cursor: pointer; text-decoration: underline;">删除</button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% endfor %}

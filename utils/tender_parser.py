@@ -68,7 +68,245 @@ def parse_tender_document(file_path):
     # 9. 生成项目概述
     result['description'] = _generate_summary(text, result)
 
+    # 10. 提取货物需求（重点）
+    result['goods_requirements'] = _extract_goods_requirements(text)
+    result['summary'] = _generate_goods_summary(result['goods_requirements'])
+
     return result
+
+
+def _extract_goods_requirements(text):
+    """
+    提取招标文件中的货物需求/采购清单/技术规格部分
+    返回: list[dict] 货物需求列表
+    """
+    goods = []
+
+    # 货物需求关键词
+    section_keywords = [
+        '货物需求', '采购清单', '货物一览表', '技术规格',
+        '规格要求', '设备清单', '材料清单', '货物参数',
+        '供货要求', '招标货物', '采购需求', '货物标准',
+        '技术要求', '技术参数'
+    ]
+
+    # 找到货物需求相关章节
+    sections = _find_sections(text, section_keywords)
+
+    for section_title, section_text in sections:
+        # 从章节文本中提取货物条目
+        items = _parse_goods_items(section_text)
+        for item in items:
+            item['source_section'] = section_title
+            goods.append(item)
+
+    # 如果没找到明确章节，尝试从全文搜索表格样式的货物清单
+    if not goods:
+        goods = _parse_table_style_goods(text)
+
+    # 去重（按货物名称）
+    seen = set()
+    unique_goods = []
+    for g in goods:
+        name = g.get('name', '').strip()
+        if name and name not in seen:
+            seen.add(name)
+            unique_goods.append(g)
+
+    return unique_goods
+
+
+def _find_sections(text, keywords):
+    """
+    在文本中查找包含关键词的章节，返回[(title, text), ...]
+    """
+    sections = []
+    lines = text.split('\n')
+
+    for i, line in enumerate(lines):
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        # 检查是否包含关键词
+        for kw in keywords:
+            if kw in line_stripped and len(line_stripped) < 30:
+                # 找到章节标题，提取后续内容直到下一个章节
+                section_lines = [line_stripped]
+                for j in range(i + 1, min(i + 100, len(lines))):
+                    next_line = lines[j].strip()
+                    # 遇到下一个章节标题（编号+标题）则停止
+                    if re.match(r'^[一二三四五六七八九十\d]+[.、．]', next_line) and len(next_line) < 30:
+                        break
+                    if next_line:
+                        section_lines.append(next_line)
+                if len(section_lines) > 1:
+                    sections.append((kw, '\n'.join(section_lines)))
+                break
+
+    return sections
+
+
+def _parse_goods_items(text):
+    """
+    从章节文本中解析货物条目
+    支持: 表格行（制表符分割）、列表行（序号+名称）
+    """
+    items = []
+    lines = text.split('\n')
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # 尝试制表符分割（表格行）
+        if '\t' in line:
+            cells = [c.strip() for c in line.split('\t') if c.strip()]
+            if len(cells) >= 2:
+                item = _parse_goods_row(cells)
+                if item:
+                    items.append(item)
+                continue
+
+        # 尝试用连续空格分割
+        cells = line.split()
+        if len(cells) >= 3:
+            item = _parse_goods_row(cells)
+            if item:
+                items.append(item)
+                continue
+
+        # 尝试"名称：规格"格式
+        m = re.match(r'(.+?)[：:]\s*(.+)', line)
+        if m:
+            name = m.group(1).strip()
+            spec = m.group(2).strip()
+            if _is_likely_goods_name(name):
+                items.append({
+                    'name': name,
+                    'spec': spec,
+                    'quantity': '',
+                    'requirements': ''
+                })
+
+    return items
+
+
+def _parse_goods_row(cells):
+    """
+    从一行单元格数据中解析货物信息
+    表格列通常: 序号 | 名称 | 规格型号 | 数量 | 单位 | 备注
+    """
+    # 找到名称列（跳过序号）
+    start = 0
+    if cells[0] and re.match(r'^\d+$', cells[0]):
+        start = 1
+
+    if start >= len(cells):
+        return None
+
+    name = cells[start].strip()
+    if not _is_likely_goods_name(name):
+        return None
+
+    spec = ''
+    quantity = ''
+    requirements = ''
+
+    # 规格型号
+    if start + 1 < len(cells):
+        spec = cells[start + 1].strip()
+
+    # 数量
+    if start + 2 < len(cells):
+        qty_text = cells[start + 2].strip()
+        if re.match(r'^\d+\.?\d*$', qty_text):
+            quantity = qty_text
+        else:
+            # 可能是单位列
+            pass
+    if start + 3 < len(cells):
+        qty_text = cells[start + 3].strip()
+        if re.match(r'^\d+\.?\d*$', qty_text) and not quantity:
+            quantity = qty_text
+
+    # 技术要求/备注（最后一列）
+    if start + 4 < len(cells):
+        requirements = cells[start + 4].strip()
+    elif start + 3 < len(cells) and not re.match(r'^\d+\.?\d*$', cells[start + 3]):
+        requirements = cells[start + 3].strip()
+
+    return {
+        'name': name,
+        'spec': spec,
+        'quantity': quantity,
+        'requirements': requirements
+    }
+
+
+def _is_likely_goods_name(text):
+    """判断文本是否像货物名称"""
+    if not text or len(text) < 2 or len(text) > 50:
+        return False
+    # 排除纯数字、序号
+    if re.match(r'^\d+$', text):
+        return False
+    # 排除章节标题
+    if re.match(r'^[一二三四五六七八九十]+[.、]', text):
+        return False
+    # 排除常见非货物词
+    exclude_words = ['序号', '名称', '规格', '数量', '单位', '备注', '合计', '总计']
+    if text in exclude_words:
+        return False
+    return True
+
+
+def _parse_table_style_goods(text):
+    """从全文搜索表格样式的货物清单"""
+    goods = []
+    lines = text.split('\n')
+
+    # 寻找包含"管径""周长""网衣"等关键词的行
+    goods_keywords = ['网箱', '管材', '管件', '网衣', '锚', '绳', '浮筒', '平台',
+                      '系泊', '连接件', '钢材', '混凝土', '网具', '浮架']
+
+    for line in lines:
+        line = line.strip()
+        if not line or '\t' not in line:
+            continue
+        cells = [c.strip() for c in line.split('\t') if c.strip()]
+        if len(cells) < 2:
+            continue
+        # 检查是否包含货物关键词
+        for cell in cells:
+            if any(kw in cell for kw in goods_keywords):
+                item = _parse_goods_row(cells)
+                if item:
+                    goods.append(item)
+                break
+
+    return goods
+
+
+def _generate_goods_summary(goods_list):
+    """生成货物需求总结"""
+    if not goods_list:
+        return ''
+
+    parts = [f'共识别到 {len(goods_list)} 项货物需求：']
+    for i, g in enumerate(goods_list[:10], 1):
+        line = f"{i}. {g.get('name', '')}"
+        if g.get('spec'):
+            line += f"（规格: {g['spec']}）"
+        if g.get('quantity'):
+            line += f" 数量: {g['quantity']}"
+        parts.append(line)
+
+    if len(goods_list) > 10:
+        parts.append(f'... 等共 {len(goods_list)} 项')
+
+    return '\n'.join(parts)
 
 
 def _read_document_text(file_path):

@@ -4,6 +4,11 @@
 
 {% block content %}
 <div class="container">
+    {% if request.args.get('deleted') == '1' %}
+    <div style="background: #e8f5e9; color: #2e7d32; padding: 12px 20px; border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid #c8e6c9; font-size: 14px;">
+        案例已删除成功
+    </div>
+    {% endif %}
     <div class="page-header">
         <h1 class="page-title">
             历史项目案例库
@@ -94,7 +99,15 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                     {{ p.location or '未知' }}
                 </div>
-                <div class="project-date">{{ p.confirm_date or '' }}</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="project-date">{{ p.confirm_date or '' }}</div>
+                    <form method="POST" action="{{ url_for('project_delete', project_id=p.id) }}" onclick="event.stopPropagation();"
+                          onsubmit="return confirm('确认删除案例「{{ p.project_name }}」？\n删除后不可恢复。');" style="display: inline;">
+                        <button type="submit" style="font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; padding: 2px 6px;" title="删除案例">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endfor %}
