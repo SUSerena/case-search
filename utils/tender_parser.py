@@ -75,13 +75,41 @@ def parse_tender_document(file_path):
     result['sea_conditions'] = _extract_sea_conditions(text)
 
     # 10. 提取网箱参数（增强，区分圆形和方形）
-    result['cage_params'] = _extract_cage_params(text)
-    # 根据 cage_shape 分配到 circle 或 square
-    shape = result['cage_params'].get('cage_shape', 'circle')
-    if shape == 'square':
-        result['cage_params_square'] = result['cage_params']
+    # 检测文本中是否同时有圆形和方形网箱
+    has_circle = bool(re.search(r'圆形|圆型|周长\s*\d+', text))
+    has_square = bool(re.search(r'方形|方型|矩形|边长\s*\d+', text))
+
+    # 更严格检查：是否有该类型的具体参数（避免仅提到类型名称但实际无该类型网箱）
+    has_circle_detail = bool(re.search(r'周长\s*\d+|直径\s*\d+', text))
+    has_square_detail = bool(re.search(r'边长\s*\d+', text))
+    if has_circle and not has_circle_detail:
+        has_circle = False
+    if has_square and not has_square_detail:
+        has_square = False
+
+    if has_circle and has_square:
+        # 同时有两种网箱，分别提取参数
+        cage = _extract_cage_params(text)
+        # 复制到圆形和方形
+        result['cage_params_circle'] = dict(cage)
+        result['cage_params_circle']['cage_shape'] = 'circle'
+        result['cage_params_square'] = dict(cage)
+        result['cage_params_square']['cage_shape'] = 'square'
+        # 清理跨类型参数：方形不应有周长/直径，圆形不应有边长
+        result['cage_params_square'].pop('perimeter', None)
+        result['cage_params_square'].pop('diameter', None)
+        result['cage_params_circle'].pop('side_length', None)
+        result['cage_params'] = result['cage_params_circle']
     else:
-        result['cage_params_circle'] = result['cage_params']
+        # 只有一种类型，按原来的方式处理
+        result['cage_params'] = _extract_cage_params(text)
+        shape = result['cage_params'].get('cage_shape', 'circle')
+        if shape == 'square':
+            result['cage_params_square'] = result['cage_params']
+            result['cage_params_circle'] = {}
+        else:
+            result['cage_params_circle'] = result['cage_params']
+            result['cage_params_square'] = {}
 
     # 11. 平台/防波堤参数
     result['platform_params'] = _extract_platform_params(text)

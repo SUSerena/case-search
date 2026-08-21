@@ -122,11 +122,14 @@
     {% endif %}
 
     <!-- 圆形网箱技术参数 -->
-    {% if project.cage_params_circle and project.cage_params_circle.pipe_diameter %}
+    {% set circle = project.cage_params_circle %}
+    {% set circle_has_data = circle and (circle.pipe_diameter or circle.perimeter or circle.diameter or circle.cage_count or circle.cage_type or circle.bracket_spacing or circle.walkway_width or circle.mooring_sleeve or circle.anchor_point_count or circle.net_demand) %}
+    {% if circle_has_data %}
     <div class="detail-section">
         <div class="detail-section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
             圆形网箱技术参数
+            {% if circle.cage_type %}<span class="tag tag-success" style="margin-left: 8px;">{{ circle.cage_type }}</span>{% endif %}
         </div>
         <div class="card">
             <div class="card-body">
@@ -178,11 +181,14 @@
     {% endif %}
 
     <!-- 方形网箱技术参数 -->
-    {% if project.cage_params_square and project.cage_params_square.pipe_diameter %}
+    {% set square = project.cage_params_square %}
+    {% set square_has_data = square and (square.pipe_diameter or square.side_length or square.cage_count or square.cage_type or square.bracket_spacing or square.walkway_width or square.mooring_sleeve or square.anchor_point_count or square.net_demand) %}
+    {% if square_has_data %}
     <div class="detail-section">
         <div class="detail-section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
             方形网箱技术参数
+            {% if square.cage_type %}<span class="tag tag-info" style="margin-left: 8px;">{{ square.cage_type }}</span>{% endif %}
         </div>
         <div class="card">
             <div class="card-body">
