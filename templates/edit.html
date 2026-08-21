@@ -144,58 +144,110 @@
             </div>
         </div>
 
-        <!-- 网箱技术参数 -->
+        <!-- 圆形网箱技术参数 -->
         <div class="card" style="margin-bottom: 20px;">
             <div class="card-body">
                 <div class="detail-section-title" style="margin-bottom: 20px;">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                    网箱技术参数
+                    圆形网箱技术参数
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">管径</label>
-                        <input type="text" name="cage_pipe_diameter" class="form-input" value="{{ project.cage_params.pipe_diameter or '' }}" placeholder="如：DN500,双层">
+                        <input type="text" name="circle_pipe_diameter" class="form-input" value="{{ project.cage_params_circle.pipe_diameter or project.cage_params.pipe_diameter or '' }}" placeholder="如：DN500">
                     </div>
                     <div class="form-group">
                         <label class="form-label">周长 (m)</label>
-                        <input type="number" step="0.1" name="cage_perimeter" class="form-input" value="{{ project.cage_params.perimeter or '' }}">
+                        <input type="number" step="0.1" name="circle_perimeter" class="form-input" value="{{ project.cage_params_circle.perimeter or project.cage_params.perimeter or '' }}">
                     </div>
                     <div class="form-group">
                         <label class="form-label">直径 (m)</label>
-                        <input type="number" step="0.1" name="cage_diameter" class="form-input" value="{{ project.cage_params.diameter or '' }}">
+                        <input type="number" step="0.1" name="circle_diameter" class="form-input" value="{{ project.cage_params_circle.diameter or project.cage_params.diameter or '' }}">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">网箱数量 (口)</label>
-                        <input type="number" name="cage_cage_count" class="form-input" value="{{ project.cage_params.cage_count or '' }}">
+                        <input type="number" name="circle_cage_count" class="form-input" value="{{ project.cage_params_circle.cage_count or project.cage_params.cage_count or '' }}">
                     </div>
                     <div class="form-group">
                         <label class="form-label">网箱类型</label>
-                        <input type="text" name="cage_cage_type" class="form-input" value="{{ project.cage_params.cage_type or '' }}" placeholder="如：圆形、抗风浪型">
+                        <input type="text" name="circle_cage_type" class="form-input" value="{{ project.cage_params_circle.cage_type or project.cage_params.cage_type or '' }}" placeholder="如：HDPE重力式圆形网箱">
                     </div>
                     <div class="form-group">
                         <label class="form-label">支架间距</label>
-                        <input type="text" name="cage_bracket_spacing" class="form-input" value="{{ project.cage_params.bracket_spacing or '' }}">
+                        <input type="text" name="circle_bracket_spacing" class="form-input" value="{{ project.cage_params_circle.bracket_spacing or project.cage_params.bracket_spacing or '' }}">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">过道宽度</label>
-                        <input type="text" name="cage_walkway_width" class="form-input" value="{{ project.cage_params.walkway_width or '' }}">
+                        <input type="text" name="circle_walkway_width" class="form-input" value="{{ project.cage_params_circle.walkway_width or project.cage_params.walkway_width or '' }}">
                     </div>
                     <div class="form-group">
                         <label class="form-label">系缆加强套管</label>
-                        <input type="text" name="cage_mooring_sleeve" class="form-input" value="{{ project.cage_params.mooring_sleeve or '' }}">
+                        <input type="text" name="circle_mooring_sleeve" class="form-input" value="{{ project.cage_params_circle.mooring_sleeve or project.cage_params.mooring_sleeve or '' }}">
                     </div>
                     <div class="form-group">
                         <label class="form-label">锚点数量</label>
-                        <input type="number" name="cage_anchor_point_count" class="form-input" value="{{ project.cage_params.anchor_point_count or '' }}">
+                        <input type="number" name="circle_anchor_point_count" class="form-input" value="{{ project.cage_params_circle.anchor_point_count or project.cage_params.anchor_point_count or '' }}">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">网衣需求</label>
-                    <textarea name="cage_net_demand" class="form-textarea" rows="2" placeholder="网衣规格、是否需要盖网、撑网架等">{{ project.cage_params.net_demand or '' }}</textarea>
+                    <textarea name="circle_net_demand" class="form-textarea" rows="2" placeholder="网衣规格、是否需要盖网、撑网架等">{{ project.cage_params_circle.net_demand or project.cage_params.net_demand or '' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方形网箱技术参数 -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-body">
+                <div class="detail-section-title" style="margin-bottom: 20px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                    方形网箱技术参数
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">管径</label>
+                        <input type="text" name="square_pipe_diameter" class="form-input" value="{{ project.cage_params_square.pipe_diameter or '' }}" placeholder="如：DN400">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">边长 (m)</label>
+                        <input type="number" step="0.1" name="square_side_length" class="form-input" value="{{ project.cage_params_square.side_length or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">网箱数量 (口)</label>
+                        <input type="number" name="square_cage_count" class="form-input" value="{{ project.cage_params_square.cage_count or '' }}">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">网箱类型</label>
+                        <input type="text" name="square_cage_type" class="form-input" value="{{ project.cage_params_square.cage_type or '' }}" placeholder="如：HDPE方形网箱">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">支架间距</label>
+                        <input type="text" name="square_bracket_spacing" class="form-input" value="{{ project.cage_params_square.bracket_spacing or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">过道宽度</label>
+                        <input type="text" name="square_walkway_width" class="form-input" value="{{ project.cage_params_square.walkway_width or '' }}">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">系缆加强套管</label>
+                        <input type="text" name="square_mooring_sleeve" class="form-input" value="{{ project.cage_params_square.mooring_sleeve or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">锚点数量</label>
+                        <input type="number" name="square_anchor_point_count" class="form-input" value="{{ project.cage_params_square.anchor_point_count or '' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">网衣需求</label>
+                    <textarea name="square_net_demand" class="form-textarea" rows="2" placeholder="网衣规格">{{ project.cage_params_square.net_demand or '' }}</textarea>
                 </div>
             </div>
         </div>

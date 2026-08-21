@@ -121,55 +121,107 @@
     </div>
     {% endif %}
 
-    <!-- 网箱技术参数 -->
-    {% if project.cage_params and project.cage_params.pipe_diameter %}
+    <!-- 圆形网箱技术参数 -->
+    {% if project.cage_params_circle and project.cage_params_circle.pipe_diameter %}
     <div class="detail-section">
         <div class="detail-section-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-            网箱技术参数
+            圆形网箱技术参数
         </div>
         <div class="card">
             <div class="card-body">
                 <div class="detail-info-grid">
                     <div class="detail-info-item">
                         <div class="detail-info-label">管径</div>
-                        <div class="detail-info-value">{{ project.cage_params.pipe_diameter or '-' }}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.pipe_diameter or '-' }}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">周长</div>
-                        <div class="detail-info-value">{{ project.cage_params.perimeter or '-' }}{% if project.cage_params.perimeter %} m{% endif %}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.perimeter or '-' }}{% if project.cage_params_circle.perimeter %} m{% endif %}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">直径</div>
-                        <div class="detail-info-value">{{ project.cage_params.diameter or '-' }}{% if project.cage_params.diameter %} m{% endif %}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.diameter or '-' }}{% if project.cage_params_circle.diameter %} m{% endif %}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">网箱数量</div>
-                        <div class="detail-info-value">{{ project.cage_params.cage_count or '-' }}{% if project.cage_params.cage_count %} 口{% endif %}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.cage_count or '-' }}{% if project.cage_params_circle.cage_count %} 口{% endif %}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">网箱类型</div>
-                        <div class="detail-info-value">{{ project.cage_params.cage_type or '-' }}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.cage_type or '-' }}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">支架间距</div>
-                        <div class="detail-info-value">{{ project.cage_params.bracket_spacing or '-' }}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.bracket_spacing or '-' }}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">过道宽度</div>
-                        <div class="detail-info-value">{{ project.cage_params.walkway_width or '-' }}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.walkway_width or '-' }}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">系缆加强套管</div>
-                        <div class="detail-info-value">{{ project.cage_params.mooring_sleeve or '-' }}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.mooring_sleeve or '-' }}</div>
                     </div>
                     <div class="detail-info-item">
                         <div class="detail-info-label">锚点数量</div>
-                        <div class="detail-info-value">{{ project.cage_params.anchor_point_count or '-' }}{% if project.cage_params.anchor_point_count %} 个{% endif %}</div>
+                        <div class="detail-info-value">{{ project.cage_params_circle.anchor_point_count or '-' }}{% if project.cage_params_circle.anchor_point_count %} 个{% endif %}</div>
                     </div>
                     <div class="detail-info-item" style="grid-column: span 2;">
                         <div class="detail-info-label">网衣需求</div>
-                        <div class="detail-info-value" style="font-size: 14px; line-height: 1.6;">{{ project.cage_params.net_demand or '-' }}</div>
+                        <div class="detail-info-value" style="font-size: 14px; line-height: 1.6;">{{ project.cage_params_circle.net_demand or '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 方形网箱技术参数 -->
+    {% if project.cage_params_square and project.cage_params_square.pipe_diameter %}
+    <div class="detail-section">
+        <div class="detail-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            方形网箱技术参数
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="detail-info-grid">
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">管径</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.pipe_diameter or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">边长</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.side_length or '-' }}{% if project.cage_params_square.side_length %} m{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">网箱数量</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.cage_count or '-' }}{% if project.cage_params_square.cage_count %} 口{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">网箱类型</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.cage_type or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">支架间距</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.bracket_spacing or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">过道宽度</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.walkway_width or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">系缆加强套管</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.mooring_sleeve or '-' }}</div>
+                    </div>
+                    <div class="detail-info-item">
+                        <div class="detail-info-label">锚点数量</div>
+                        <div class="detail-info-value">{{ project.cage_params_square.anchor_point_count or '-' }}{% if project.cage_params_square.anchor_point_count %} 个{% endif %}</div>
+                    </div>
+                    <div class="detail-info-item" style="grid-column: span 2;">
+                        <div class="detail-info-label">网衣需求</div>
+                        <div class="detail-info-value" style="font-size: 14px; line-height: 1.6;">{{ project.cage_params_square.net_demand or '-' }}</div>
                     </div>
                 </div>
             </div>

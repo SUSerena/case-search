@@ -157,6 +157,7 @@ def init_db():
         pipe_diameter TEXT,
         perimeter REAL,
         diameter REAL,
+        side_length REAL,
         bracket_spacing TEXT,
         walkway_width TEXT,
         mooring_sleeve TEXT,
@@ -164,9 +165,20 @@ def init_db():
         net_demand TEXT,
         cage_count INTEGER,
         cage_type TEXT,
+        cage_shape TEXT DEFAULT 'circle',
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
     ''')
+
+    # 迁移：为旧数据库添加新字段
+    try:
+        cursor.execute("ALTER TABLE cage_params ADD COLUMN cage_shape TEXT DEFAULT 'circle'")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE cage_params ADD COLUMN side_length REAL")
+    except:
+        pass
 
     # 平台技术参数表
     cursor.execute('''
@@ -481,12 +493,12 @@ def update_project_fields(project_id, fields):
             cursor.execute(f'INSERT INTO sea_conditions ({", ".join(cols)}) VALUES ({placeholders})',
                            [project_id] + list(sea_data.values()))
 
-    # ---- 网箱参数（UPDATE or INSERT）----
-    cage = fields.get('cage_params', {})
+    # ---- 网箱参数（UPDATE or INSERT，支持圆形和方形）----
     cage_map = {
         'pipe_diameter': 'pipe_diameter',
         'perimeter': 'perimeter',
         'diameter': 'diameter',
+        'side_length': 'side_length',
         'cage_type': 'cage_type',
         'cage_count': 'cage_count',
         'bracket_spacing': 'bracket_spacing',
@@ -494,23 +506,34 @@ def update_project_fields(project_id, fields):
         'anchor_point_count': 'anchor_point_count',
         'net_demand': 'net_demand',
     }
-    cage_data = {}
-    for field_name, db_col in cage_map.items():
-        val = cage.get(field_name)
-        if val is not None and str(val).strip():
-            cage_data[db_col] = val
-    if cage_data:
-        cursor.execute('SELECT id FROM cage_params WHERE project_id = ?', (project_id,))
+    # 检查 cage_params_circle, cage_params_square, cage_params (兼容)
+    for source_key, default_shape in [('cage_params_circle', 'circle'),
+                                       ('cage_params_square', 'square'),
+                                       ('cage_params', None)]:
+        cage = fields.get(source_key, {})
+        if not cage:
+            continue
+        shape = cage.get('cage_shape') or default_shape or 'circle'
+        cage_data = {}
+        for field_name, db_col in cage_map.items():
+            val = cage.get(field_name)
+            if val is not None and str(val).strip():
+                cage_data[db_col] = val
+        if not cage_data:
+            continue
+        # 按 shape 查找已有记录
+        cursor.execute('SELECT id FROM cage_params WHERE project_id = ? AND cage_shape = ?',
+                       (project_id, shape))
         existing = cursor.fetchone()
         if existing:
             set_clauses = ', '.join(f'{k} = ?' for k in cage_data)
-            cursor.execute(f'UPDATE cage_params SET {set_clauses} WHERE project_id = ?',
-                           list(cage_data.values()) + [project_id])
+            cursor.execute(f'UPDATE cage_params SET {set_clauses} WHERE project_id = ? AND cage_shape = ?',
+                           list(cage_data.values()) + [project_id, shape])
         else:
-            cols = ['project_id'] + list(cage_data.keys())
+            cols = ['project_id', 'cage_shape'] + list(cage_data.keys())
             placeholders = ', '.join('?' for _ in cols)
             cursor.execute(f'INSERT INTO cage_params ({", ".join(cols)}) VALUES ({placeholders})',
-                           [project_id] + list(cage_data.values()))
+                           [project_id, shape] + list(cage_data.values()))
 
     conn.commit()
     conn.close()
@@ -568,26 +591,31 @@ def insert_project(data):
             sea.get('max_wind_speed')
         ))
 
-    # 插入网箱参数
-    cage = data.get('cage_params', {})
-    if cage:
+    # 插入网箱参数 — 支持圆形和方形
+    for shape_key, shape_val in [('cage_params_circle', 'circle'), ('cage_params_square', 'square'), ('cage_params', None)]:
+        cage = data.get(shape_key, {})
+        if not cage:
+            continue
+        shape = cage.get('cage_shape') or shape_val or 'circle'
         cursor.execute('''
-        INSERT INTO cage_params (project_id, pipe_diameter, perimeter, diameter, bracket_spacing,
-                                  walkway_width, mooring_sleeve, anchor_point_count,
-                                  net_demand, cage_count, cage_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO cage_params (project_id, pipe_diameter, perimeter, diameter, side_length,
+                                  bracket_spacing, walkway_width, mooring_sleeve, anchor_point_count,
+                                  net_demand, cage_count, cage_type, cage_shape)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             project_id,
             cage.get('pipe_diameter', ''),
             cage.get('perimeter'),
             cage.get('diameter'),
+            cage.get('side_length'),
             cage.get('bracket_spacing', ''),
             cage.get('walkway_width', ''),
             cage.get('mooring_sleeve', ''),
             cage.get('anchor_point_count'),
             cage.get('net_demand', ''),
             cage.get('cage_count'),
-            cage.get('cage_type', '')
+            cage.get('cage_type', ''),
+            shape
         ))
 
     # 插入平台参数
@@ -698,10 +726,20 @@ def get_project_detail(project_id):
     sea = cursor.fetchone()
     project['sea_conditions'] = dict(sea) if sea else {}
 
-    # 网箱参数
+    # 网箱参数 — 支持圆形和方形两种
     cursor.execute('SELECT * FROM cage_params WHERE project_id = ?', (project_id,))
-    cage = cursor.fetchone()
-    project['cage_params'] = dict(cage) if cage else {}
+    cage_rows = cursor.fetchall()
+    project['cage_params_circle'] = {}
+    project['cage_params_square'] = {}
+    project['cage_params'] = {}  # 兼容旧代码
+    for row in cage_rows:
+        row_dict = dict(row)
+        shape = row_dict.get('cage_shape', 'circle')
+        if shape == 'square':
+            project['cage_params_square'] = row_dict
+        else:
+            project['cage_params_circle'] = row_dict
+            project['cage_params'] = row_dict  # 兼容旧代码（优先圆形）
 
     # 平台参数
     cursor.execute('SELECT * FROM platform_params WHERE project_id = ?', (project_id,))
@@ -965,57 +1003,34 @@ def update_project(project_id, data):
                 sea.get('max_wind_speed')
             ))
 
-    # 更新网箱参数
-    cage = data.get('cage_params', {})
-    if cage:
-        cursor.execute('SELECT id FROM cage_params WHERE project_id = ?', (project_id,))
-        existing = cursor.fetchone()
-        if existing:
-            cursor.execute('''
-            UPDATE cage_params SET
-                pipe_diameter = ?,
-                perimeter = ?,
-                diameter = ?,
-                bracket_spacing = ?,
-                walkway_width = ?,
-                mooring_sleeve = ?,
-                anchor_point_count = ?,
-                net_demand = ?,
-                cage_count = ?,
-                cage_type = ?
-            WHERE project_id = ?
-            ''', (
-                cage.get('pipe_diameter', ''),
-                cage.get('perimeter'),
-                cage.get('diameter'),
-                cage.get('bracket_spacing', ''),
-                cage.get('walkway_width', ''),
-                cage.get('mooring_sleeve', ''),
-                cage.get('anchor_point_count'),
-                cage.get('net_demand', ''),
-                cage.get('cage_count'),
-                cage.get('cage_type', ''),
-                project_id
-            ))
-        else:
-            cursor.execute('''
-            INSERT INTO cage_params (project_id, pipe_diameter, perimeter, diameter, bracket_spacing,
-                                      walkway_width, mooring_sleeve, anchor_point_count,
-                                      net_demand, cage_count, cage_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                project_id,
-                cage.get('pipe_diameter', ''),
-                cage.get('perimeter'),
-                cage.get('diameter'),
-                cage.get('bracket_spacing', ''),
-                cage.get('walkway_width', ''),
-                cage.get('mooring_sleeve', ''),
-                cage.get('anchor_point_count'),
-                cage.get('net_demand', ''),
-                cage.get('cage_count'),
-                cage.get('cage_type', '')
-            ))
+    # 更新网箱参数 — 支持圆形和方形
+    # 先删除旧记录，再插入新记录
+    cursor.execute('DELETE FROM cage_params WHERE project_id = ?', (project_id,))
+    for shape_key, shape_val in [('cage_params_circle', 'circle'), ('cage_params_square', 'square'), ('cage_params', None)]:
+        cage = data.get(shape_key, {})
+        if not cage:
+            continue
+        shape = cage.get('cage_shape') or shape_val or 'circle'
+        cursor.execute('''
+        INSERT INTO cage_params (project_id, pipe_diameter, perimeter, diameter, side_length,
+                                  bracket_spacing, walkway_width, mooring_sleeve, anchor_point_count,
+                                  net_demand, cage_count, cage_type, cage_shape)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            project_id,
+            cage.get('pipe_diameter', ''),
+            cage.get('perimeter'),
+            cage.get('diameter'),
+            cage.get('side_length'),
+            cage.get('bracket_spacing', ''),
+            cage.get('walkway_width', ''),
+            cage.get('mooring_sleeve', ''),
+            cage.get('anchor_point_count'),
+            cage.get('net_demand', ''),
+            cage.get('cage_count'),
+            cage.get('cage_type', ''),
+            shape
+        ))
 
     # 更新平台参数
     platform = data.get('platform_params', {})

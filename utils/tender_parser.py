@@ -30,6 +30,8 @@ def parse_tender_document(file_path):
         'description': '',
         'sea_conditions': {},
         'cage_params': {},
+        'cage_params_circle': {},
+        'cage_params_square': {},
         'platform_params': {},
         'breakwater_params': {},
         'goods_requirements': [],
@@ -72,8 +74,14 @@ def parse_tender_document(file_path):
     # 9. 提取海况参数（增强）
     result['sea_conditions'] = _extract_sea_conditions(text)
 
-    # 10. 提取网箱参数（增强）
+    # 10. 提取网箱参数（增强，区分圆形和方形）
     result['cage_params'] = _extract_cage_params(text)
+    # 根据 cage_shape 分配到 circle 或 square
+    shape = result['cage_params'].get('cage_shape', 'circle')
+    if shape == 'square':
+        result['cage_params_square'] = result['cage_params']
+    else:
+        result['cage_params_circle'] = result['cage_params']
 
     # 11. 平台/防波堤参数
     result['platform_params'] = _extract_platform_params(text)
@@ -347,52 +355,103 @@ def _extract_number_near(text, keywords, context_chars=30):
 
 
 def _extract_sea_conditions(text):
-    """提取海况参数（增强版，支持范围值和前缀符号）"""
+    """提取海况参数（优化版，增强上下文匹配和准确率）"""
     sea = {}
 
-    # 水深 — 支持 "水深12~16米" "水深15m" "深度25米"
-    val = _extract_number_near(text, ['水深', '深度', '设计水深', '满潮水深'])
-    if val:
-        sea['water_depth'] = val
-
-    # 波高 — 优先匹配 "≤5米的风浪" (值在关键词前)，再匹配 "波高3m" (值在关键词后)
-    # 先匹配 "≤5米的风浪" / "5米风浪" 等
-    m = re.search(r'[≤<]?\s*(\d+\.?\d*)\s*米?\s*的?\s*风浪', text)
-    if m:
-        sea['max_wave_height'] = m.group(1)
-    else:
-        m = re.search(r'波高[：: ]*[≤<]?\s*(\d+\.?\d*)', text)
+    # 水深 — 多模式匹配，优先完整范围
+    # 模式: "水深12~16米" "设计水深15m" "水深12-16米" "水深为12米"
+    for pattern in [
+        r'水深[为约]?[：:]?\s*(\d+\.?\d*)\s*[~～\-至到]+\s*(\d+\.?\d*)\s*米',
+        r'水深[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*米',
+        r'设计水深[：:]?\s*(\d+\.?\d*)\s*[~～\-至到]+\s*(\d+\.?\d*)',
+        r'设计水深[：:]?\s*[≤<]?\s*(\d+\.?\d*)',
+        r'(?:深度|满潮水深)[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*米',
+    ]:
+        m = re.search(pattern, text)
         if m:
-            sea['max_wave_height'] = m.group(1)
-    # 也搜索 "≤5米的风浪" with ≤ prefix
-    if 'max_wave_height' not in sea:
-        m = re.search(r'[≤<]\s*(\d+\.?\d*)\s*米.*?风浪', text)
-        if m:
-            sea['max_wave_height'] = f'≤{m.group(1)}'
+            groups = [g for g in m.groups() if g]
+            if len(groups) >= 2:
+                sea['water_depth'] = f'{groups[0]}~{groups[1]}'
+            else:
+                sea['water_depth'] = groups[0]
+            break
+    # 回退到 _extract_number_near
+    if 'water_depth' not in sea:
+        val = _extract_number_near(text, ['水深', '设计水深', '深度', '满潮水深'])
+        if val:
+            sea['water_depth'] = val
 
-    # 流速 — 支持 "≤1.5米/秒流速" "流速1.5m/s" "≤1.5米/秒流速"
-    m = re.search(r'[≤<]?\s*(\d+\.?\d*)\s*米?[/／]?\s*[秒s].*?流速', text)
-    if m:
-        sea['max_flow_speed'] = m.group(1)
-    else:
+    # 波高 — 多模式匹配
+    # 模式: "波高≤5m" "有效波高3米" "Hs=5" "≤5米的风浪"
+    for pattern in [
+        r'(?:有效波高|最大波高|设计波高|波高)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*[~～\-至到]+\s*(\d+\.?\d*)\s*米?',
+        r'(?:有效波高|最大波高|设计波高|波高)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*米?',
+        r'(?:有效波高|最大波高|设计波高|波高)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*(?:m|米)',
+        r'[≤<]?\s*(\d+\.?\d*)\s*米?\s*的?\s*(?:风浪|波浪|波高)',
+        r'Hs[=＝：:]?\s*(\d+\.?\d*)',
+    ]:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            groups = [g for g in m.groups() if g]
+            prefix = '≤' if '≤' in m.group(0) or '<' in m.group(0) else ''
+            if len(groups) >= 2:
+                sea['max_wave_height'] = f'{prefix}{groups[0]}~{groups[1]}'
+            else:
+                sea['max_wave_height'] = f'{prefix}{groups[0]}'
+            break
+
+    # 流速 — 多模式匹配
+    # 模式: "流速≤1.5m/s" "表层流速0.5米/秒" "最大流速1.5"
+    for pattern in [
+        r'(?:最大流速|表层流速|设计流速|流速)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*(?:m/s|米/秒|m／s|米／秒)',
+        r'(?:最大流速|表层流速|设计流速|流速)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*[~～\-至到]+\s*(\d+\.?\d*)',
+        r'(?:最大流速|表层流速|设计流速|流速)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)',
+        r'[≤<]?\s*(\d+\.?\d*)\s*(?:m/s|米/秒)\s*(?:的)?\s*流速',
+    ]:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            groups = [g for g in m.groups() if g]
+            prefix = '≤' if '≤' in m.group(0) or '<' in m.group(0) else ''
+            if len(groups) >= 2:
+                sea['max_flow_speed'] = f'{prefix}{groups[0]}~{groups[1]}'
+            else:
+                sea['max_flow_speed'] = f'{prefix}{groups[0]}'
+            break
+    # 回退
+    if 'max_flow_speed' not in sea:
         val = _extract_number_near(text, ['流速', '水流', '海流'])
         if val:
             sea['max_flow_speed'] = val
 
-    # 风速/台风 — 支持 "≤12级的台风" "台风≤12级" "风力12级"
-    m = re.search(r'[≤<]?\s*(\d+)\s*级.*?(?:台风|风力|风级)', text)
-    if m:
-        sea['typhoon_level'] = f'≤{m.group(1)}级'
-    else:
-        m = re.search(r'台风.*?[≤<]?\s*(\d+)\s*级', text)
+    # 风速/台风 — 优化匹配
+    # 台风等级: "抗台风≤12级" "≤12级台风" "台风12级"
+    for pattern in [
+        r'(?:抗台风|抗风|台风|风力)[≤<]?\s*(\d+)\s*级',
+        r'[≤<]?\s*(\d+)\s*级.*?(?:台风|风力|风级)',
+        r'台风.*?[≤<]?\s*(\d+)\s*级',
+    ]:
+        m = re.search(pattern, text)
         if m:
-            sea['typhoon_level'] = f'≤{m.group(1)}级'
+            prefix = '≤' if '≤' in m.group(0) or '<' in m.group(0) else ''
+            sea['typhoon_level'] = f'{prefix}{m.group(1)}级'
+            break
 
-    val = _extract_number_near(text, ['风速', '阵风'])
-    if val:
-        sea['max_wind_speed'] = val
+    # 风速: "设计风速30m/s" "风速≤30"
+    for pattern in [
+        r'(?:设计风速|最大风速|风速|阵风)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)\s*(?:m/s|米/秒)',
+        r'(?:设计风速|最大风速|风速|阵风)[为约]?[：:]?\s*[≤<]?\s*(\d+\.?\d*)',
+    ]:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            prefix = '≤' if '≤' in m.group(0) or '<' in m.group(0) else ''
+            sea['max_wind_speed'] = f'{prefix}{m.group(1)}'
+            break
+    if 'max_wind_speed' not in sea:
+        val = _extract_number_near(text, ['风速', '阵风'])
+        if val:
+            sea['max_wind_speed'] = val
 
-    # 气温 — 支持 "-20°C至40°C"
+    # 气温 — 支持 "-20°C至40°C" "-20~40℃"
     m = re.search(r'(-?\d+)\s*[°℃]\s*[Cc]?\s*[至到\-~～]\s*(\d+)\s*[°℃]', text)
     if m:
         sea['temperature_range'] = f'{m.group(1)}°C~{m.group(2)}°C'
@@ -400,19 +459,24 @@ def _extract_sea_conditions(text):
         m = re.search(r'气温[：: ]*(-?\d+)\s*[°℃]', text)
         if m:
             sea['temperature_range'] = f'{m.group(1)}°C'
+    # 也匹配 "-20~40°C" 无前置关键词
+    if 'temperature_range' not in sea:
+        m = re.search(r'(-?\d+)\s*[~～至到\-]\s*(\d+)\s*[°℃]', text)
+        if m:
+            sea['temperature_range'] = f'{m.group(1)}°C~{m.group(2)}°C'
 
-    # 海域面积 — "海域面积5000亩"
-    m = re.search(r'海域面积\s*(\d+(?:\.\d+)?)\s*(亩|平方米|㎡|公顷|km2)', text)
+    # 海域面积 — "海域面积5000亩" "用海面积300公顷"
+    m = re.search(r'(?:海域面积|用海面积|养殖面积)\s*(\d+(?:\.\d+)?)\s*(亩|平方米|㎡|公顷|km2|km²)', text)
     if m:
         sea['sea_area_size'] = f'{m.group(1)}{m.group(2)}'
 
-    # 离岸距离 — "离岸约20公里"
-    m = re.search(r'离岸[约]?\s*(\d+(?:\.\d+)?)\s*(公里|千米|km|海里|nm)', text)
+    # 离岸距离 — "离岸约20公里" "距岸15海里"
+    m = re.search(r'(?:离岸|距岸|离岸距离)[约]?\s*(\d+(?:\.\d+)?)\s*(公里|千米|km|海里|nm|nmile)', text, re.IGNORECASE)
     if m:
         sea['offshore_distance'] = f'{m.group(1)}{m.group(2)}'
 
     # 潮差/水位差
-    m = re.search(r'潮差[：: ]*(\d+\.?\d*)', text)
+    m = re.search(r'潮差[：: ]*(\d+\.?\d*)\s*米?', text)
     if m:
         sea['water_level_diff'] = m.group(1)
     m = re.search(r'水位差[：: ]*(\d+\.?\d*)', text)
@@ -423,6 +487,11 @@ def _extract_sea_conditions(text):
     m = re.search(r'底质[：:]\s*([^\n，。；;]{2,20})', text)
     if m:
         sea['seabed_type'] = m.group(1).strip()
+    # 也匹配 "海底底质为"
+    if 'seabed_type' not in sea:
+        m = re.search(r'海底(?:底质|地质)[为是]?\s*([^\n，。；;]{2,20})', text)
+        if m:
+            sea['seabed_type'] = m.group(1).strip()
 
     return sea
 
@@ -430,19 +499,31 @@ def _extract_sea_conditions(text):
 # ====================== 网箱参数提取（增强版） ======================
 
 def _extract_cage_params(text):
-    """提取网箱参数"""
+    """提取网箱参数，区分圆形和方形"""
     cage = {}
 
-    # 管径 — DN250, DN 250, dn250
-    m = re.search(r'(?:管径|主管径|主浮管)[：: ]*(DN?\s*\d+[^，。\n；;]{0,20})', text, re.IGNORECASE)
+    # 管径 — 优先匹配 DNxxx 格式 (DN200, DN 315, dn400 等)
+    # 模式1: "管径DN250" "主管径DN315" "主浮管DN400" 等
+    m = re.search(r'(?:管径|主管径|主浮管|浮管|浮筒管材?)[：: ]*(DN\s*\d+(?:\s*[×x]\s*DN\s*\d+)?)', text, re.IGNORECASE)
     if m:
-        cage['pipe_diameter'] = m.group(1).strip()
+        cage['pipe_diameter'] = re.sub(r'\s+', '', m.group(1).upper())
     else:
-        m = re.search(r'\bDN\s*(\d+)\b', text, re.IGNORECASE)
+        # 模式2: 单独出现的 DN+数字 (如 "DN250" "DN 315")
+        m = re.search(r'\b(DN\s*\d+)\b', text, re.IGNORECASE)
         if m:
-            cage['pipe_diameter'] = f'DN{m.group(1)}'
+            cage['pipe_diameter'] = re.sub(r'\s+', '', m.group(1).upper())
+        else:
+            # 模式3: 管径后面跟纯数字+mm (如 "管径315mm")
+            m = re.search(r'(?:管径|主管径|主浮管)[：: ]*(\d{2,4})\s*(?:mm|毫米|MM)', text, re.IGNORECASE)
+            if m:
+                cage['pipe_diameter'] = f'DN{m.group(1)}'
+            else:
+                # 模式4: "浮管外径为400mm" "浮管外径400mm" "外径为400mm" "管外径400mm"
+                m = re.search(r'(?:浮管|主浮管|主管|外径|管外径)[为是]?\s*(\d{2,4})\s*(?:mm|毫米|MM)', text, re.IGNORECASE)
+                if m:
+                    cage['pipe_diameter'] = f'DN{m.group(1)}'
 
-    # 周长 — "周长60米"
+    # 周长 — "周长60米" "周长60m"
     m = re.search(r'周长\s*(\d+\.?\d*)\s*米?', text)
     if m:
         cage['perimeter'] = float(m.group(1))
@@ -451,6 +532,11 @@ def _extract_cage_params(text):
     m = re.search(r'直径\s*(\d+\.?\d*)\s*米?', text)
     if m:
         cage['diameter'] = float(m.group(1))
+
+    # 边长（方形网箱）— "边长10米" "边长10m"
+    m = re.search(r'边长\s*(\d+\.?\d*)\s*米?', text)
+    if m:
+        cage['side_length'] = float(m.group(1))
 
     # 网箱数量 — "64座" "20座...44座" "10口"
     # 优先匹配 "投放XX座"
@@ -466,10 +552,23 @@ def _extract_cage_params(text):
             if m:
                 cage['cage_count'] = int(m.group(1))
 
-    # 网箱类型
-    m = re.search(r'(HDPE|PE|橡胶|柔性|圆柱形|圆形|方形)\s*(?:重力式)?\s*(?:深水)?\s*网?箱?', text)
-    if m:
-        cage['cage_type'] = m.group(1)
+    # 网箱类型 — 增强圆形/方形判断
+    if re.search(r'圆形|圆型|周长', text) and not re.search(r'方形|方型|矩形', text):
+        cage['cage_shape'] = 'circle'
+        m = re.search(r'((?:HDPE|PE|橡胶|柔性|休闲型|传统型)?\s*(?:重力式\s*)?(?:深水\s*)?圆形\s*网箱)', text)
+        cage['cage_type'] = m.group(1).strip() if m else '圆形网箱'
+    elif re.search(r'方形|方型|矩形', text) and not re.search(r'圆形|圆型', text):
+        cage['cage_shape'] = 'square'
+        m = re.search(r'((?:HDPE|PE|橡胶|柔性)?\s*(?:重力式\s*)?(?:深水\s*)?方形\s*网箱)', text)
+        cage['cage_type'] = m.group(1).strip() if m else '方形网箱'
+    else:
+        # 默认圆形
+        m = re.search(r'(HDPE|PE|橡胶|柔性|圆柱形|圆形|方形)\s*(?:重力式)?\s*(?:深水)?\s*网?箱?', text)
+        if m:
+            cage['cage_type'] = m.group(1)
+            cage['cage_shape'] = 'square' if m.group(1) in ('方形',) else 'circle'
+        else:
+            cage['cage_shape'] = 'circle'
 
     # 支架间距
     m = re.search(r'支架间距[：: ]*(\d+\.?\d*)\s*米?', text)
@@ -757,9 +856,18 @@ def _generate_goods_summary(goods_list):
 
 
 def _generate_summary(text, result):
-    """生成项目概述"""
+    """生成项目概述（优化版，优先提取项目概况章节）"""
+
+    # 1. 尝试从文本中提取"项目概况""工程概况""项目简介"等章节
+    overview = _extract_overview_section(text)
+
     parts = []
 
+    # 如果提取到了概况章节，作为概述开头
+    if overview:
+        parts.append(overview)
+
+    # 2. 结构化信息补充
     if result.get('project_scale'):
         parts.append(f"项目规模：{result['project_scale']}")
     if result.get('construction_period'):
@@ -780,22 +888,82 @@ def _generate_summary(text, result):
         sea_parts.append(f"流速{sea['max_flow_speed']}m/s")
     if sea.get('typhoon_level'):
         sea_parts.append(f"抗台风{sea['typhoon_level']}")
+    if sea.get('max_wind_speed'):
+        sea_parts.append(f"风速{sea['max_wind_speed']}m/s")
     if sea_parts:
-        parts.append("海况：" + "，".join(sea_parts))
+        parts.append("海况条件：" + "，".join(sea_parts))
 
-    # 网箱参数汇总
-    cage = result.get('cage_params', {})
-    cage_parts = []
-    if cage.get('cage_count'):
-        cage_parts.append(f"{cage['cage_count']}座")
-    if cage.get('perimeter'):
-        cage_parts.append(f"周长{cage['perimeter']}米")
-    if cage.get('pipe_diameter'):
-        cage_parts.append(f"管径{cage['pipe_diameter']}")
-    if cage_parts:
-        parts.append("网箱：" + "，".join(cage_parts))
+    # 网箱参数汇总 — 区分圆形和方形
+    cage_circle = result.get('cage_params_circle', {}) or result.get('cage_params', {})
+    cage_square = result.get('cage_params_square', {})
+
+    # 圆形网箱
+    if cage_circle and (cage_circle.get('cage_count') or cage_circle.get('pipe_diameter')):
+        cage_parts = []
+        if cage_circle.get('cage_count'):
+            cage_parts.append(f"{cage_circle['cage_count']}座")
+        if cage_circle.get('perimeter'):
+            cage_parts.append(f"周长{cage_circle['perimeter']}米")
+        if cage_circle.get('pipe_diameter'):
+            cage_parts.append(f"管径{cage_circle['pipe_diameter']}")
+        if cage_circle.get('cage_type'):
+            cage_parts.append(cage_circle['cage_type'])
+        if cage_parts:
+            parts.append("圆形网箱：" + "，".join(cage_parts))
+
+    # 方形网箱
+    if cage_square and (cage_square.get('cage_count') or cage_square.get('pipe_diameter')):
+        cage_parts = []
+        if cage_square.get('cage_count'):
+            cage_parts.append(f"{cage_square['cage_count']}座")
+        if cage_square.get('side_length'):
+            cage_parts.append(f"边长{cage_square['side_length']}米")
+        if cage_square.get('pipe_diameter'):
+            cage_parts.append(f"管径{cage_square['pipe_diameter']}")
+        if cage_parts:
+            parts.append("方形网箱：" + "，".join(cage_parts))
 
     return '\n'.join(parts) if parts else ''
+
+
+def _extract_overview_section(text):
+    """
+    从招标文件中提取项目概况/项目简介/工程概况等章节内容
+    返回简洁的项目概况文本
+    """
+    # 查找章节标题
+    section_titles = [
+        '项目概况', '工程概况', '项目简介', '项目背景',
+        '工程简介', '项目背景及概况', '建设背景',
+    ]
+
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        line_stripped = line.strip()
+        for title in section_titles:
+            if title in line_stripped and len(line_stripped) < 20:
+                # 提取后续段落（最多500字符）
+                overview_lines = []
+                char_count = 0
+                for j in range(i + 1, min(i + 50, len(lines))):
+                    next_line = lines[j].strip()
+                    # 遇到下一个章节标题则停止
+                    if re.match(r'^第[一二三四五六七八九十\d]+章', next_line):
+                        break
+                    if re.match(r'^[一二三四五六七八九十\d]+[.、．]\s', next_line) and len(next_line) < 30:
+                        break
+                    if next_line:
+                        overview_lines.append(next_line)
+                        char_count += len(next_line)
+                        if char_count >= 500:
+                            break
+                if overview_lines:
+                    overview_text = ''.join(overview_lines[:5])  # 取前5行拼接
+                    # 清理多余空白
+                    overview_text = re.sub(r'\s+', ' ', overview_text).strip()
+                    if len(overview_text) > 20:
+                        return overview_text[:500]
+    return ''
 
 
 def get_supported_formats():

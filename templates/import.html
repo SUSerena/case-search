@@ -282,9 +282,9 @@
                             </div>
                         </div>
 
-                        <!-- 网箱参数 -->
+                        <!-- 圆形网箱参数 -->
                         <div style="background: #f3e5f5; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
-                            <h4 style="margin-bottom: 10px; font-size: 13px; color: #7b1fa2;">🔧 网箱/设备参数</h4>
+                            <h4 style="margin-bottom: 10px; font-size: 13px; color: #7b1fa2;">🔧 圆形网箱参数</h4>
                             <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
                                 <div class="form-group">
                                     <label class="form-label">网箱数量(座)</label>
@@ -296,11 +296,30 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">管径</label>
-                                    <input type="text" name="pipe_diameter" class="form-input" id="tp_pipe_diameter" placeholder="未识别">
+                                    <input type="text" name="pipe_diameter" class="form-input" id="tp_pipe_diameter" placeholder="DN315">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">网箱类型</label>
                                     <input type="text" name="cage_type" class="form-input" id="tp_cage_type" placeholder="未识别">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 方形网箱参数 -->
+                        <div style="background: #e8f5e9; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+                            <h4 style="margin-bottom: 10px; font-size: 13px; color: #2e7d32;">🔧 方形网箱参数（如有）</h4>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">方形网箱数量(座)</label>
+                                    <input type="text" name="square_cage_count" class="form-input" id="tp_square_cage_count" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">边长(m)</label>
+                                    <input type="text" name="square_side_length" class="form-input" id="tp_square_side_length" placeholder="未识别">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">方形管径</label>
+                                    <input type="text" name="square_pipe_diameter" class="form-input" id="tp_square_pipe_diameter" placeholder="DN250">
                                 </div>
                             </div>
                         </div>
@@ -345,8 +364,22 @@
 
                 <div class="form-group">
                     <label class="form-label">选择项目 <span class="required">*</span></label>
-                    <select class="form-select" id="drawingProjectSelect">
+                    <select class="form-select" id="drawingProjectSelect" onchange="toggleNewProjectInput()">
                         <option value="">请先选择要上传图纸的项目</option>
+                        <option value="__new__">➕ 新建项目</option>
+                    </select>
+                </div>
+
+                <!-- 新建项目名称输入框（选择"新建项目"时显示） -->
+                <div class="form-group" id="newProjectNameWrap" style="display: none; margin-bottom: 16px;">
+                    <label class="form-label">新项目名称 <span class="required">*</span></label>
+                    <input type="text" id="newProjectName" class="form-input" placeholder="输入新项目名称">
+                    <label class="form-label" style="margin-top: 8px;">项目类型</label>
+                    <select class="form-select" id="newProjectType">
+                        <option value="网箱">网箱</option>
+                        <option value="平台">平台</option>
+                        <option value="平台＋网箱">平台＋网箱</option>
+                        <option value="防波堤">防波堤</option>
                     </select>
                 </div>
 
@@ -732,11 +765,18 @@ function showTenderPreview(data, existing, projectId) {
     setFieldWithMode('tp_offshore_distance', sea.offshore_distance, null);
     setFieldWithMode('tp_seabed_type', sea.seabed_type, exSea.seabed_type);
 
-    // 网箱参数
+    // 网箱参数 — 圆形
     setFieldWithMode('tp_cage_count', cage.cage_count, exCage.cage_count);
     setFieldWithMode('tp_perimeter', cage.perimeter, exCage.perimeter);
     setFieldWithMode('tp_pipe_diameter', cage.pipe_diameter, exCage.pipe_diameter);
     setFieldWithMode('tp_cage_type', cage.cage_type, exCage.cage_type);
+
+    // 网箱参数 — 方形
+    const sqCage = (data.cage_params_square) || {};
+    const exSqCage = (existing && existing.cage_params_square) || {};
+    setFieldWithMode('tp_square_cage_count', sqCage.cage_count, exSqCage.cage_count);
+    setFieldWithMode('tp_square_side_length', sqCage.side_length, exSqCage.side_length);
+    setFieldWithMode('tp_square_pipe_diameter', sqCage.pipe_diameter, exSqCage.pipe_diameter);
 
     // 描述
     setFieldWithMode('tp_description', data.description, ex.description);
@@ -798,15 +838,22 @@ function saveTenderProject() {
     // 海况参数字段
     const seaFields = ['water_depth', 'max_wave_height', 'max_flow_speed', 'typhoon_level',
                        'temperature_range', 'sea_area_size', 'offshore_distance', 'seabed_type'];
-    // 网箱参数字段
-    const cageFields = ['cage_count', 'perimeter', 'pipe_diameter', 'cage_type'];
+    // 网箱参数字段（圆形+方形）
+    const cageFields = ['cage_count', 'perimeter', 'pipe_diameter', 'cage_type',
+                        'square_cage_count', 'square_side_length', 'square_pipe_diameter'];
 
     if (!projectData.sea_conditions) projectData.sea_conditions = {};
     if (!projectData.cage_params) projectData.cage_params = {};
+    if (!projectData.cage_params_square) projectData.cage_params_square = {};
 
     formData.forEach((value, key) => {
         if (seaFields.includes(key)) {
             projectData.sea_conditions[key] = value;
+        } else if (key.startsWith('square_')) {
+            // 方形网箱字段
+            const sqKey = key.replace('square_', '');
+            projectData.cage_params_square[sqKey === 'cage_count' ? 'cage_count' :
+                                            sqKey === 'pipe_diameter' ? 'pipe_diameter' : sqKey] = value;
         } else if (cageFields.includes(key)) {
             projectData.cage_params[key] = value;
         } else {
@@ -842,6 +889,14 @@ function saveTenderProject() {
                 }
             });
         }
+        if (projectData.cage_params_square) {
+            Object.keys(projectData.cage_params_square).forEach(k => {
+                const v = projectData.cage_params_square[k];
+                if (v === '' || v === null || v === undefined) {
+                    delete projectData.cage_params_square[k];
+                }
+            });
+        }
     }
 
     fetch('/api/import/tender/save', {
@@ -865,9 +920,19 @@ function saveTenderProject() {
 }
 
 // 图纸上传
+function toggleNewProjectInput() {
+    const sel = document.getElementById('drawingProjectSelect');
+    const wrap = document.getElementById('newProjectNameWrap');
+    if (sel.value === '__new__') {
+        wrap.style.display = 'block';
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+
 function handleDrawingUpload(event) {
-    const projectId = document.getElementById('drawingProjectSelect').value;
-    if (!projectId) {
+    const selectVal = document.getElementById('drawingProjectSelect').value;
+    if (!selectVal) {
         alert('请先选择要上传图纸的项目');
         return;
     }
@@ -879,6 +944,41 @@ function handleDrawingUpload(event) {
     resultEl.className = 'import-result';
     resultEl.innerHTML = '<div class="loading"></div> 正在上传...';
 
+    if (selectVal === '__new__') {
+        // 新建项目模式
+        const newName = document.getElementById('newProjectName').value.trim();
+        if (!newName) {
+            alert('请输入新项目名称');
+            resultEl.className = '';
+            resultEl.innerHTML = '';
+            return;
+        }
+        const newType = document.getElementById('newProjectType').value;
+        resultEl.innerHTML = '<div class="loading"></div> 正在创建项目并上传...';
+        fetch('/api/project/quick-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_name: newName, project_type: newType })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                uploadDrawings(data.project_id, files, resultEl);
+            } else {
+                resultEl.className = 'import-result error';
+                resultEl.innerHTML = `<strong>❌ 创建项目失败</strong><br>${data.message}`;
+            }
+        })
+        .catch(err => {
+            resultEl.className = 'import-result error';
+            resultEl.innerHTML = `<strong>❌ 创建项目失败</strong><br>${err.message}`;
+        });
+    } else {
+        uploadDrawings(selectVal, files, resultEl);
+    }
+}
+
+function uploadDrawings(projectId, files, resultEl) {
     let uploaded = 0;
     let failed = 0;
 
@@ -900,7 +1000,7 @@ function handleDrawingUpload(event) {
         if (uploaded + failed === files.length) {
             if (failed === 0) {
                 resultEl.className = 'import-result success';
-                resultEl.innerHTML = `<strong>✅ 上传成功</strong><br>成功上传 ${uploaded} 个文件`;
+                resultEl.innerHTML = `<strong>✅ 上传成功</strong><br>成功上传 ${uploaded} 个文件到项目`;
             } else {
                 resultEl.className = 'import-result error';
                 resultEl.innerHTML = `<strong>⚠️ 上传完成</strong><br>成功 ${uploaded} 个，失败 ${failed} 个`;

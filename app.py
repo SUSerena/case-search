@@ -560,6 +560,23 @@ def serve_photo(file_id):
     )
 
 
+@app.route('/api/project/quick-create', methods=['POST'])
+def api_quick_create_project():
+    """快速创建项目（用于图纸上传时新建项目）"""
+    data = request.get_json() or {}
+    project_name = data.get('project_name', '').strip()
+    if not project_name:
+        return jsonify({'success': False, 'message': '项目名称不能为空'}), 400
+    if project_exists(project_name):
+        return jsonify({'success': False, 'message': f"项目 '{project_name}' 已存在"}), 400
+    data['project_type'] = data.get('project_type', '网箱')
+    try:
+        project_id = insert_project(data)
+        return jsonify({'success': True, 'project_id': project_id, 'message': '项目创建成功'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'创建失败：{str(e)}'}), 500
+
+
 @app.route('/api/upload/drawing/<int:project_id>', methods=['POST'])
 def api_upload_drawing(project_id):
     """上传图纸文件"""
@@ -787,17 +804,30 @@ def _parse_project_form(form):
             'max_wind_direction': form.get('max_wind_direction', ''),
             'max_wind_speed': safe_float(form.get('max_wind_speed')),
         },
-        'cage_params': {
-            'pipe_diameter': form.get('cage_pipe_diameter', ''),
-            'perimeter': safe_float(form.get('cage_perimeter')),
-            'diameter': safe_float(form.get('cage_diameter')),
-            'bracket_spacing': form.get('cage_bracket_spacing', ''),
-            'walkway_width': form.get('cage_walkway_width', ''),
-            'mooring_sleeve': form.get('cage_mooring_sleeve', ''),
-            'anchor_point_count': safe_int(form.get('cage_anchor_point_count')),
-            'net_demand': form.get('cage_net_demand', ''),
-            'cage_count': safe_int(form.get('cage_cage_count')),
-            'cage_type': form.get('cage_cage_type', ''),
+        'cage_params_circle': {
+            'cage_shape': 'circle',
+            'pipe_diameter': form.get('circle_pipe_diameter', '') or form.get('cage_pipe_diameter', ''),
+            'perimeter': safe_float(form.get('circle_perimeter')) or safe_float(form.get('cage_perimeter')),
+            'diameter': safe_float(form.get('circle_diameter')) or safe_float(form.get('cage_diameter')),
+            'bracket_spacing': form.get('circle_bracket_spacing', '') or form.get('cage_bracket_spacing', ''),
+            'walkway_width': form.get('circle_walkway_width', '') or form.get('cage_walkway_width', ''),
+            'mooring_sleeve': form.get('circle_mooring_sleeve', '') or form.get('cage_mooring_sleeve', ''),
+            'anchor_point_count': safe_int(form.get('circle_anchor_point_count')) or safe_int(form.get('cage_anchor_point_count')),
+            'net_demand': form.get('circle_net_demand', '') or form.get('cage_net_demand', ''),
+            'cage_count': safe_int(form.get('circle_cage_count')) or safe_int(form.get('cage_cage_count')),
+            'cage_type': form.get('circle_cage_type', '') or form.get('cage_cage_type', ''),
+        },
+        'cage_params_square': {
+            'cage_shape': 'square',
+            'pipe_diameter': form.get('square_pipe_diameter', ''),
+            'side_length': safe_float(form.get('square_side_length')),
+            'bracket_spacing': form.get('square_bracket_spacing', ''),
+            'walkway_width': form.get('square_walkway_width', ''),
+            'mooring_sleeve': form.get('square_mooring_sleeve', ''),
+            'anchor_point_count': safe_int(form.get('square_anchor_point_count')),
+            'net_demand': form.get('square_net_demand', ''),
+            'cage_count': safe_int(form.get('square_cage_count')),
+            'cage_type': form.get('square_cage_type', ''),
         },
         'platform_params': {
             'pipe_diameter': form.get('platform_pipe_diameter', ''),
